@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<g stroke-linecap="round" stroke-linejoin="round">
+  <!-- 尾巴：安静贴地 -->
+  <path d="M72 208q-26-8-22-28 4-16 22-10" fill="none" stroke="#7dd3fc" stroke-width="10"/>
+  <!-- 身体与小脚：软萌坐姿团子 -->
+  <ellipse cx="128" cy="186" rx="66" ry="46" fill="#38bdf8" stroke="#bae6fd" stroke-width="6"/>
+  <ellipse cx="98" cy="222" rx="18" ry="12" fill="#fff" stroke="#bae6fd" stroke-width="4"/>
+  <ellipse cx="158" cy="222" rx="18" ry="12" fill="#fff" stroke="#bae6fd" stroke-width="4"/>
+  <!-- 头与耳朵：奶油微亮蓝耳朵 -->
+  <path d="M82 128q-18-36-4-50 18-2 32 30" fill="#a78bfa" stroke="#e0e7ff" stroke-width="5"/>
+  <path d="M174 128q18-36 4-50-18-2-32 30" fill="#a78bfa" stroke="#e0e7ff" stroke-width="5"/>
+  <circle cx="128" cy="136" r="54" fill="#f0fdf4" stroke="#dcfce7" stroke-width="6"/>
+  <!-- 大眼睛与小呆嘴：呆萌水汪汪 -->
+  <ellipse cx="106" cy="136" rx="9" ry="13" fill="#1e293b"/>
+  <circle cx="103" cy="132" r="3" fill="#ffffff"/>
+  <ellipse cx="150" cy="136" rx="9" ry="13" fill="#1e293b"/>
+  <circle cx="147" cy="132" r="3" fill="#ffffff"/>
+  <path d="M124 150q4 4 8 0" fill="none" stroke="#1e293b" stroke-width="4"/>
+  <!-- 腮红与胸口徽记 -->
+  <ellipse cx="88" cy="148" rx="7" ry="4" fill="#f472b6" opacity="0.8"/>
+  <ellipse cx="168" cy="148" rx="7" ry="4" fill="#f472b6" opacity="0.8"/>
+  <circle cx="128" cy="184" r="8" fill="#38bdf8" stroke="#ffffff" stroke-width="3"/>
+</g>
+</svg>

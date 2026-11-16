@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>《我就赢了 Codex 一球，它竟然开挂了》· 导演控制台与摄像头动捕中心</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --card: rgba(17, 24, 39, 0.90);
+      --border: rgba(148, 163, 184, 0.18);
+      --cyan: #38bdf8;
+      --green: #4ade80;
+      --amber: #facc15;
+      --orange: #fb923c;
+      --red: #f87171;
+      --purple: #c084fc;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at 50% 0%, #172554 0%, #070b14 75%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      min-height: 100vh;
+      padding: 16px 14px 48px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .shell {
+      width: 100%;
+      max-width: 1320px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .header-bar {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+    }
+    .title-group h1 {
+      font-size: 19px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .title-group p {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .status-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .pill {
+      padding: 5px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .pill.online {
+      background: rgba(22, 163, 74, 0.18);
+      border-color: rgba(74, 222, 128, 0.45);
+      color: var(--green);
+    }
+    .pill.active-scene {
+      background: rgba(245, 158, 11, 0.2);
+      border-color: rgba(250, 204, 21, 0.5);
+      color: var(--amber);
+      font-size: 13px;
+    }
+
+    /* 主控制按钮排 */
+    .director-toolbar {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .main-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .btn {
+      padding: 9px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: #1e293b;
+      color: #fff;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s;
+      text-decoration: none;
+    }
+    .btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+    .btn:active { transform: scale(0.97); }
+    .btn-play {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      border-color: #fbbf24;
+      color: #090d16;
+      font-size: 14px;
+      font-weight: 800;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+    }
+    .btn-green { background: linear-gradient(135deg, #16a34a, #15803d); }
+    .btn-cyan { background: linear-gradient(135deg, #0284c7, #0369a1); }
+    .btn-purple { background: linear-gradient(135deg, #9333ea, #6b21a8); }
+    .btn-red { background: linear-gradient(135deg, #dc2626, #991b1b); }
+    .btn-smash {
+      background: linear-gradient(135deg, #fb7185, #ea580c);
+      border-color: #fdba74;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35);
+    }
+    .score-pill {
+      background: rgba(234, 88, 12, 0.22);
+      border-color: rgba(251, 146, 60, 0.65);
+      color: #fdba74;
+      font-size: 13px;
+    }
+    .mobile-ctrl-card {
+      background: linear-gradient(160deg, rgba(15, 28, 52, 0.96), rgba(30, 41, 59, 0.92));
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      border-radius: 16px;
+      padding: 14px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .mobile-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .mobile-grid .btn {
+      padding: 12px 10px;
+      font-size: 13.5px;
+    }
+
+    /* S0 - S10 可视化剧情时间线与快照回滚条 */
+    .timeline-grid {
+      display: grid;
+      grid-template-columns: repeat(11, minmax(92px, 1fr));
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .scene-node {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 10px;
+      padding: 8px 6px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .scene-node:hover {
+      border-color: var(--cyan);
+      background: rgba(2, 132, 199, 0.18);
+    }
+    .scene-node.current {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.28), rgba(217, 119, 6, 0.18));
+      border-color: var(--amber);
+      box-shadow: 0 0 14px rgba(245, 158, 11, 0.3);
+    }
+    .scene-node .s-id {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--amber);
+    }
+    .scene-node .s-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: #f8fafc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* 中部双栏：左侧透明桌面同步预监 + 全息发球机预监；右侧摄像头挥拍动捕中心 */
+    .stage-and-camera-grid {
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 1024px) {
+      .stage-and-camera-grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .preview-row {
+      display: grid;
+      grid-template-columns: 1.55fr 0.85fr;
+      gap: 10px;
+    }
+    @media (max-width: 680px) {
+      .preview-row { grid-template-columns: 1fr; }
+    }
+    .canvas-box {
+      background: #0b1120;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    .canvas-box .c-title {
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--cyan);
+      background: rgba(15, 23, 42, 0.9);
+      display: flex;
+      justify-content: space-between;
+    }
+    .canvas-box canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      image-rendering: pixelated;
+    }
+
+    /* 摄像头动捕面板 */
+    .cam-preview-wrap {
+      position: relative;
+      background: #000;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      height: 210px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cam-preview-wrap video {
+      display: none;
+    }
+    .cam-preview-wrap canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .cam-overlay-hint {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      right: 8px;
+      background: rgba(15, 23, 42, 0.86);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #fde047;
+      font-weight: 700;
+      text-align: center;
+    }
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .tele-item {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+    .tele-item .t-label { font-size: 11px; color: var(--muted); }
+    .tele-item .t-val { font-size: 14px; font-weight: 800; margin-top: 2px; color: #fff; }
+
+    /* 下部双栏：左侧多设备连接中心（带二维码与多网卡切换）；右侧参数滑块与独立音效混音台 */
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1.05fr 1.35fr;
+      gap: 14px;
+    }
+    @media (max-width: 1024px) {
+      .bottom-grid { grid-template-columns: 1fr; }
+    }
+    .qr-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    @media (max-width: 560px) {
+      .qr-cards { grid-template-columns: 1fr; }
+    }
+    .qr-card {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 8px;
+    }
+    .qr-card canvas {
+      background: #fff;
+      padding: 6px;
+      border-radius: 8px;
+      width: 136px;
+      height: 136px;
+      image-rendering: pixelated;
+    }
+    .url-code {
+      font-family: Consolas, monospace;
+      font-size: 11.5px;
+      color: var(--cyan);
+      background: #090d16;
+      padding: 5px 8px;
+      border-radius: 6px;
+      word-break: break-all;
+      width: 100%;
+      user-select: all;
+    }
+
+    /* 中文参数滑块 */
+    .sliders-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 14px;
+    }
+    @media (max-width: 640px) {
+      .sliders-grid { grid-template-columns: 1fr; }
+    }
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 7px 10px;
+      border-radius: 8px;
+    }
+    .slider-row .s-top {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 700;
+      color: #cbd5e1;
+    }
+    .slider-row input[type=range] {
+      width: 100%;
+      accent-color: var(--cyan);
+    }
+    .sfx-preview-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      max-height: 110px;
+      overflow-y: auto;
+      padding: 6px;
+      background: rgba(9, 13, 22, 0.7);
+      border-radius: 10px;
+    }
+    .sfx-chip {
+      padding: 4px 9px;
+      font-size: 11px;
+      border-radius: 6px;
+      background: #1e293b;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #cbd5e1;
+      cursor: pointer;
+    }
+    .sfx-chip:hover { background: #0284c7; color: #fff; }
+    select, input[type=text] {
+      background: #0f172a;
+      color: #f8fafc;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <!-- 顶部状态总览栏 -->
+    <div class="header-bar">
+      <div class="title-group">
+        <h1>🏸 《我就赢了 Codex 一球，它竟然开挂了》· 导演控制台</h1>
+        <p id="sceneDescText">S0｜日常待机：Codex 坐在小办公桌前敲代码工作，点击「陪我打球」开启完整透明桌面羽毛球互动短剧</p>
+      </div>
+      <div class="status-strip">
+        <span class="pill active-scene" id="curScenePill">当前节点：S0｜日常待机</span>
+        <span class="pill" id="curPosePill">角色状态：敲代码工作</span>
+        <span class="pill score-pill" id="liveScorePill">🏆 比分 你 0 : 5 Codex</span>
+        <span class="pill" id="handModePill">🖐 手部：五指21点</span>
+        <span class="pill" id="devDesktopPill">💻 透明桌面层：检测中</span>
+        <span class="pill" id="devHoloPill">🔮 全息手机 A：等待扫码</span>
+        <span class="pill" id="devCtrlPill">📱 控制端：连接中</span>
+        <span class="pill" id="devCamPill">📷 摄像头：待开启</span>
+        <a class="pill" href="/" style="text-decoration:none;color:#fde047;border-color:rgba(250,204,21,0.45);">✨ 三合一工作台</a>
+        <a class="pill" href="/guide" target="_blank" style="text-decoration:none;color:#38bdf8;border-color:rgba(56,189,248,0.45);">🧭 连接向导</a>
+        <a class="pill" href="/strike/dash" style="text-decoration:none;color:#4ade80;border-color:rgba(74,222,128,0.45);">⛏️ 旧版控制台</a>
+        <button class="pill" id="btnShowBarTop" style="cursor:pointer;color:#fde047;border-color:rgba(250,204,21,0.45);">🎛️ 桌面悬浮条</button>
+        <button class="pill" id="btnCloseDesktopTop" style="cursor:pointer;color:#fca5a5;border-color:rgba(248,113,113,0.45);">✕ 关闭桌面</button>
+        <button class="pill" id="btnShutdownTop" style="cursor:pointer;background:rgba(220,38,38,0.28);color:#fecaca;border-color:rgba(239,68,68,0.65);">⏻ 退出服务</button>
+      </div>
+    </div>
+
+    <!-- 手机端实时遥控面板（/badminton/ctrl 访问时自动置顶显示，大按钮直连电脑实时互动） -->
+    <div class="card mobile-ctrl-card" id="mobileCtrlBar">
+      <div class="card-header">
+        <span>📱 手机实时遥控中心（直连电脑桌面与摄像头）</span>
+        <span class="pill score-pill" id="mobileScoreText">你 0 : 5 Codex</span>
+      </div>
+      <div id="mobileBubbleHint" style="font-size:12.5px;color:#cbd5e1;line-height:1.45;">
+        可随时在手机上切换「五指 21 点 / 球拍形态」、触发强力扣杀减分、在工位戳烦 Codex 或远程开关电脑摄像头。
+      </div>
+      <div class="mobile-grid">
+        <button class="btn btn-play" id="btnMobStart">🏸 开始开打</button>
+        <button class="btn btn-smash" id="btnMobSmash">💥 强力扣杀 (-1)</button>
+        <button class="btn btn-purple" id="btnMobHandMode">🖐 当前：五指21点</button>
+        <button class="btn" id="btnMobPoke" style="color:#fda4af;border-color:rgba(251,113,133,0.45);">👉 戳工位小人</button>
+        <button class="btn btn-cyan" id="btnMobBarrage">⚡ 七球连发</button>
+        <button class="btn" id="btnMobQuit" style="color:#fde047;">🏠 收拍回工位</button>
+        <button class="btn btn-green" id="btnMobCam">📷 开关电脑摄像头</button>
+        <button class="btn btn-purple" id="btnMobPreview">🪞 电脑镜像校准</button>
+      </div>
+    </div>
+
+    <!-- 导演主控工具栏与 S0~S10 可视化时间线快照回滚 -->
+    <div class="director-toolbar">
+      <div class="main-btns">
+        <button class="btn btn-play" id="btnStartPlay">🏸 陪我打球 / 开始开打</button>
+        <button class="btn btn-green" id="btnCamQuickTop">📷 开启/关闭摄像头</button>
+        <button class="btn btn-smash" id="btnManualSwing">💥 强力扣杀 / 挥拍 (空格键 · 爆裂-1)</button>
+        <button class="btn btn-purple" id="btnHandModeToggle">🖐 手势形态：五指 21 点 (点击切球拍)</button>
+        <button class="btn" id="btnPokeCodex" style="color:#fda4af;border-color:rgba(251,113,133,0.45);">👉 戳工位 Codex (烦躁反馈)</button>
+        <button class="btn btn-cyan" id="btnManualServe">⚡ 触发七球连发 / 手动发球</button>
+        <button class="btn" id="btnPauseResume">⏸ 暂停剧情</button>
+        <button class="btn" id="btnReplayScene">↺ 重播当前幕</button>
+        <button class="btn" id="btnPrevScene">⏮ 返回上一幕</button>
+        <button class="btn" id="btnNextScene">⏭ 下一幕</button>
+        <button class="btn btn-purple" id="btnToggleEdit">🔓 切换桌面透明层：调整位置/大小</button>
+        <button class="btn" id="btnReturnDaily" style="color:#fde047;">🏠 收拍回工位</button>
+        <button class="btn" id="btnCloseDesktop" style="color:#fca5a5;border-color:rgba(248,113,113,0.45);">🖥️ 关闭透明桌面</button>
+        <button class="btn btn-red" id="btnShutdownSystem">⏻ 关闭桌面与服务</button>
+        <select id="selSystemMode" title="切换系统运行模式">
+          <option value="director">🎬 C. 导演拍摄模式 (宽容接球+稳拍节奏)</option>
+          <option value="single">💻 A. 单机测试模式 (无需连接手机)</option>
+          <option value="multi">📱 B. 多设备实机模式 (严格跨端确认)</option>
+        </select>
+        <select id="selVersionMode" title="切换成片节奏版本">
+          <option value="full">⏱ 完整开场版 (约 26 秒)</option>
+          <option value="compact">⚡ 短视频紧凑版 (约 20 秒)</option>
+        </select>
+      </div>
+
+      <div style="font-size:12px;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;">
+        <span>🎞️ <strong>运行时剧情时间线（点击任意 S0~S10 节点即可秒级回滚道具、服装、羽毛球与全息发球机状态）：</strong></span>
+        <span id="rallyCounterText" style="color:#38bdf8;font-weight:700;">对打回合：0 / 2</span>
+      </div>
+      <div class="timeline-grid" id="timelineGrid"></div>
+    </div>
+
+    <!-- 中部：左侧透明桌面同步预监 + 模拟全息发球机；右侧摄像头手部挥拍动捕中心 -->
+    <div class="stage-and-camera-grid">
+      <!-- 左侧：透明桌面场景实时同步预监 & 单机模拟发球机 -->
+      <div class="card">
+        <div class="card-header">
+          <span>🖥️ 透明桌面主场景同步预监 &amp; 全息发球机预监 (A.单机测试与导演监视器)</span>
+          <label style="font-size:12px;color:#38bdf8;cursor:pointer;display:flex;align-items:center;gap:5px;">
+            <input type="checkbox" id="chkGuideLines"> 显示球场标定辅助线
+          </label>
+        </div>
+        <div class="preview-row">
+          <div class="canvas-box">
+            <div class="c-title">
+              <span>💻 电脑透明桌面层实时映射 (真实桌面图标完全可见)</span>
+              <span id="hitWindowBadge" style="color:#94a3b8;">等待来球</span>
+            </div>
+            <canvas id="courtPreviewCanvas" width="520" height="292"></canvas>
+          </div>
+          <div class="canvas-box">
+            <div class="c-title">
+              <span>🔮 手机 A 全息发球机实时映射</span>
+              <a href="/badminton/holo" target="_blank" style="color:#fde047;text-decoration:none;">独立打开 ↗</a>
+            </div>
+            <canvas id="simHoloCanvas" width="240" height="180"></canvas>
+          </div>
+        </div>
+        <div style="font-size:12px;color:#94a3b8;line-height:1.5;">
+          💡 <strong>操作提示：</strong> 在 Windows 桌面上，右下角悬浮条可随时切换 <strong>【🔒 日常穿透模式】</strong>（鼠标 100% 穿透不挡桌面）与 <strong>【🔓 编辑位置模式】</strong>（直接用鼠标左键拖拽 Codex 小人位置、地面高度和接球圈，滚轮缩放小人大小）。在上方左图直接点击或拖拽也可测试挥拍！
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span>📷 电脑本机摄像头与手势识别控制</span><span class="pill" id="camStatePill" style="font-size:11.5px;">检测中…</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;"><button class="btn btn-green" id="btnCamToggle">▶ 开启摄像头</button><button class="btn btn-cyan" id="btnCamRetry">🔄 重连摄像头</button><button class="btn" id="btnCamSwitch">🔀 切换镜头 (#0)</button><button class="btn btn-purple" id="btnCamPreview">🪞 本机镜像预览</button><button class="btn btn-purple" id="btnHandModeCam">🏸 切换球拍/五指</button><button class="btn" id="btnLaunchOverlay" style="border-color:rgba(56,189,248,0.45);color:#38bdf8;">🚀 启动/唤醒透明桌宠</button></div>
+        <div id="camBanner" style="background:rgba(15,23,42,0.85);border:1px solid rgba(56,189,248,0.28);border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.55;color:#e2e8f0;">正在读取透明桌宠摄像头状态… 举起一只手露出五指即可在桌面显示 21 点镜像手。</div>
+        <div style="font-size:12px;color:#94a3b8;line-height:1.5;">💡 <strong>联动说明：</strong> 桌面左下角配有可拖拽、可收起的「桌宠控制台」悬浮条；说「清个屏」或按 Ctrl+Alt+B 也能开打，按 Ctrl+Alt+V 可随时查看本机 21 点校准预览（不录像、不上传）。</div>
+        <div class="telemetry-grid">
+          <div class="tele-item">
+            <div class="t-label">手部/球拍检测</div>
+            <div class="t-val" id="teleHand">未开启</div>
+          </div>
+          <div class="tele-item">
+            <div class="t-label">宽容接球窗口</div>
+            <div class="t-val" id="teleWindow">等待发球</div>
+          </div>
+          <div class="tele-item">
+            <div class="t-label">防误触冷却状态</div>
+            <div class="t-val" id="teleCooldown">就绪</div>
+          </div>
+          <div class="tele-item">
+            <div class="t-label">最近成功回球</div>
+            <div class="t-val" id="teleLastHit">暂无</div>
+          </div>
+          <div class="tele-item">
+            <div class="t-label">当前镜头设备</div>
+            <div class="t-val" id="teleCamIdx">摄像头 #0</div>
+          </div>
+          <div class="tele-item">
+            <div class="t-label">手机全息发球端</div>
+            <div class="t-val" id="telePhone">等待扫码连接</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 下部：左侧多设备连接中心（解决两个手机与电脑地址不适配问题）；右侧中文参数滑块与音效混音台 -->
+    <div class="bottom-grid">
+      <!-- 左侧：设备连接中心 -->
+      <div class="card">
+        <div class="card-header">
+          <span>📲 多设备连接中心 (已自动过滤虚拟网卡，支持多网卡一键切换与扫码直连)</span>
+          <button class="btn" id="btnRefreshLan" style="padding:4px 10px;font-size:12px;">🔄 刷新地址</button>
+        </div>
+
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;">
+          <span><strong>选择电脑局域网 Wi-Fi 地址：</strong></span>
+          <select id="selLanIp" style="flex:1;min-width:150px;"></select>
+          <input type="text" id="inpCustomIp" placeholder="或手动输入电脑IP" style="width:135px;">
+          <button class="btn btn-cyan" id="btnApplyIp" style="padding:6px 10px;font-size:12px;">应用 IP</button>
+        </div>
+
+        <div class="qr-cards">
+          <!-- 手机 A：全息发球机端 -->
+          <div class="qr-card">
+            <div style="font-size:13px;font-weight:800;color:#fb923c;">🔮 手机 A：全息发球机投影端</div>
+            <canvas id="qrHoloCanvas" width="136" height="136"></canvas>
+            <div class="url-code" id="urlHoloText">正在获取局域网地址...</div>
+            <div style="display:flex;gap:6px;width:100%;">
+              <button class="btn btn-cyan" id="btnTestHolo" style="flex:1;padding:6px;font-size:11.5px;">🚀 投影发球测试</button>
+              <a class="btn" id="linkHoloOpen" href="/badminton/holo" target="_blank" style="padding:6px 8px;font-size:11.5px;">打开 ↗</a>
+            </div>
+          </div>
+
+          <!-- 手机 B：辅助控制与导演端 -->
+          <div class="qr-card">
+            <div style="font-size:13px;font-weight:800;color:#38bdf8;">📱 手机 B：导演与辅助控制端</div>
+            <canvas id="qrCtrlCanvas" width="136" height="136"></canvas>
+            <div class="url-code" id="urlCtrlText">正在获取局域网地址...</div>
+            <div style="display:flex;gap:6px;width:100%;">
+              <button class="btn btn-green" id="btnTestPing" style="flex:1;padding:6px;font-size:11.5px;">📡 通信延迟测试</button>
+              <a class="btn" id="linkCtrlOpen" href="/badminton/ctrl" target="_blank" style="padding:6px 8px;font-size:11.5px;">打开 ↗</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：中文参数滑块、预设模式与独立音效混音台 -->
+      <div class="card">
+        <div class="card-header">
+          <span>🎛️ 常用参数实时调节 &amp; 独立音效混音台</span>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <select id="selPreset" style="padding:4px 8px;font-size:12px;">
+              <option value="daily">预设：日常体验 (默认)</option>
+              <option value="filming">预设：稳定拍摄 (宽容接球)</option>
+              <option value="fast_funny">预设：快节奏搞笑 (短视频)</option>
+              <option value="custom">预设：自定义</option>
+            </select>
+            <button class="btn" id="btnResetParams" style="padding:4px 10px;font-size:11.5px;">恢复默认</button>
+          </div>
+        </div>
+
+        <div class="sliders-grid">
+          <div class="slider-row">
+            <div class="s-top"><span>角色大小缩放</span><span id="valCharScale">1.6x</span></div>
+            <input type="range" id="rngCharScale" min="0.8" max="2.5" step="0.05" value="1.6">
+          </div>
+          <div class="slider-row">
+            <div class="s-top"><span>羽毛球基础飞行速度</span><span id="valShuttleSpeed">1.0x</span></div>
+            <input type="range" id="rngShuttleSpeed" min="0.5" max="1.8" step="0.05" value="1.0">
+          </div>
+          <div class="slider-row">
+            <div class="s-top"><span>羽毛球最大弧线高度</span><span id="valArcHeight">1.0x</span></div>
+            <input type="range" id="rngArcHeight" min="0.5" max="1.6" step="0.05" value="1.0">
+          </div>
+          <div class="slider-row">
+            <div class="s-top"><span>强力扣杀球速度</span><span id="valSmashSpeed">1.45x</span></div>
+            <input type="range" id="rngSmashSpeed" min="1.0" max="2.2" step="0.05" value="1.45">
+          </div>
+          <div class="slider-row">
+            <div class="s-top"><span>宽容接球时间窗口 (ms)</span><span id="valHitWindow">680 ms</span></div>
+            <input type="range" id="rngHitWindow" min="300" max="900" step="20" value="680">
+          </div>
+          <div class="slider-row">
+            <div class="s-top"><span>挥拍冷却防误触 (ms)</span><span id="valCooldown">240 ms</span></div>
+            <input type="range" id="rngCooldown" min="150" max="450" step="10" value="240">
+          </div>
+          <div class="slider-row">
+            <div class="s-top"><span>🔊 总音量 / 音效音量</span><span id="valVolume">90%</span></div>
+            <input type="range" id="rngVolume" min="0" max="1" step="0.05" value="0.9">
+          </div>
+          <div class="slider-row">
+            <div class="s-top"><span>⏱ 音效延迟微调 (ms)</span><span id="valAudioOffset">0 ms</span></div>
+            <input type="range" id="rngAudioOffset" min="-150" max="150" step="10" value="0">
+          </div>
+        </div>
+
+        <div style="font-size:12px;color:#94a3b8;font-weight:700;">🎵 26 种动作与情绪音效单独预听 (含💥扣杀爆裂与💢戳小人烦躁音效，点击试听)：</div>
+        <div class="sfx-preview-wrap" id="sfxPreviewWrap"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/coffee/badminton_director.js?v=live4"></script>
+</body>
+</html>

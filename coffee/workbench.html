@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Codex 全息桌宠 · 三合一互动工作台</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --card: rgba(17, 24, 39, 0.90);
+      --panel: rgba(15, 23, 42, 0.85);
+      --border: rgba(148, 163, 184, 0.20);
+      --cyan: #38bdf8;
+      --green: #4ade80;
+      --amber: #facc15;
+      --orange: #fb923c;
+      --purple: #c084fc;
+      --red: #f87171;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at 50% 0%, #172554 0%, var(--bg) 72%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      min-height: 100vh;
+      padding: 16px 14px 56px;
+      display: flex;
+      justify-content: center;
+    }
+    .shell { width: 100%; max-width: 1340px; display: flex; flex-direction: column; gap: 14px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 18px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
+    }
+    .topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+    .brand h1 { font-size: 20px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+    .brand p { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .pill {
+      padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 700;
+      background: #1e293b; border: 1px solid var(--border); color: var(--muted);
+    }
+    .pill.ok { background: rgba(22, 163, 74, 0.18); border-color: rgba(74, 222, 128, 0.45); color: var(--green); }
+    .pill.warn { background: rgba(234, 179, 8, 0.16); border-color: rgba(250, 204, 21, 0.45); color: var(--amber); }
+    .btn {
+      padding: 8px 13px; border-radius: 10px; font-size: 12.5px; font-weight: 700;
+      border: 1px solid rgba(255, 255, 255, 0.14); background: #1e293b; color: #f8fafc;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: 0.15s; text-decoration: none;
+    }
+    .btn:hover { filter: brightness(1.14); transform: translateY(-1px); }
+    .btn.primary { background: linear-gradient(135deg, #0284c7, #0369a1); border-color: #38bdf8; }
+    .btn.gold { background: linear-gradient(135deg, #f59e0b, #d97706); border-color: #fbbf24; color: #090d16; font-weight: 800; }
+    .btn.green { background: linear-gradient(135deg, #16a34a, #15803d); border-color: #4ade80; }
+    .btn.purple { background: linear-gradient(135deg, #9333ea, #6b21a8); border-color: #c084fc; }
+    .btn.red { background: linear-gradient(135deg, #dc2626, #991b1b); border-color: #f87171; }
+    .btn.active { background: #0284c7; border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.35); }
+
+    /* 三模式主切换卡 */
+    .mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    @media (max-width: 900px) { .mode-grid { grid-template-columns: 1fr; } }
+    .mode-card {
+      background: var(--panel); border: 2px solid var(--border); border-radius: 14px;
+      padding: 14px 16px; cursor: pointer; transition: all 0.16s ease; text-align: left;
+      display: flex; flex-direction: column; gap: 6px; color: var(--text);
+    }
+    .mode-card:hover { border-color: rgba(56, 189, 248, 0.55); transform: translateY(-2px); }
+    .mode-card.active {
+      border-color: var(--cyan);
+      background: linear-gradient(145deg, rgba(2, 132, 199, 0.24), rgba(15, 23, 42, 0.92));
+      box-shadow: 0 6px 22px rgba(56, 189, 248, 0.22);
+    }
+    .mode-head { display: flex; align-items: center; justify-content: space-between; font-size: 16px; font-weight: 800; }
+    .mode-badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(56, 189, 248, 0.18); color: var(--cyan); }
+    .mode-desc { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+
+    /* 零权限 & 空白电脑降级控制条 */
+    .privacy-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    @media (max-width: 1100px) { .privacy-strip { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) { .privacy-strip { grid-template-columns: 1fr; } }
+    .ctrl-box {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+      padding: 10px 12px; display: flex; flex-direction: column; gap: 7px;
+    }
+    .ctrl-title { font-size: 12px; font-weight: 800; color: #e2e8f0; display: flex; justify-content: space-between; }
+    .ctrl-sub { font-size: 11px; color: var(--muted); line-height: 1.4; }
+    .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+    .seg button {
+      flex: 1; padding: 6px 8px; font-size: 11.5px; font-weight: 700; border-radius: 8px;
+      border: 1px solid var(--border); background: #0f172a; color: var(--muted); cursor: pointer;
+    }
+    .seg button.on { background: #0284c7; color: #fff; border-color: #38bdf8; }
+
+    /* 电脑端同屏多视角舞台 */
+    .stage-toolbar {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+      gap: 10px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
+    }
+    .stage-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .stage-grid.two { grid-template-columns: 1.25fr 1fr; }
+    @media (max-width: 1040px) { .stage-grid, .stage-grid.two { grid-template-columns: 1fr; } }
+    .frame-card {
+      background: #090e1a; border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+    .frame-head {
+      padding: 8px 12px; background: rgba(15, 23, 42, 0.95); border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; font-weight: 700;
+    }
+    .frame-head a { color: var(--cyan); text-decoration: none; font-size: 11.5px; }
+    .frame-box { width: 100%; height: 390px; background: #000; position: relative; }
+    .frame-box iframe { width: 100%; height: 100%; border: 0; }
+
+    /* 扫码登录多设备区 */
+    .qr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-top: 10px; }
+    .qr-card {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+      padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+    }
+    .qr-card img { width: 156px; height: 156px; border-radius: 10px; background: #fff; padding: 6px; }
+    .qr-card code {
+      font-size: 11px; color: var(--cyan); background: rgba(2, 6, 23, 0.7); padding: 4px 8px;
+      border-radius: 6px; word-break: break-all; width: 100%;
+    }
+    .ip-select {
+      background: #0f172a; border: 1px solid var(--cyan); color: #f8fafc;
+      padding: 6px 10px; border-radius: 8px; font-size: 12.5px;
+    }
+
+    /* 精简友好弹窗 */
+    dialog.modal {
+      margin: auto; background: #0f172a; color: #f8fafc; border: 1px solid var(--cyan);
+      border-radius: 16px; max-width: 720px; width: calc(100% - 28px); padding: 20px 22px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
+    }
+    dialog.modal::backdrop { background: rgba(2, 6, 23, 0.72); backdrop-filter: blur(4px); }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .modal-head h2 { font-size: 17px; font-weight: 800; color: var(--amber); }
+    .modal-body { font-size: 13px; color: #cbd5e1; line-height: 1.7; display: flex; flex-direction: column; gap: 10px; }
+    .modal-body ul { padding-left: 18px; }
+    .modal-body img.diagram { width: 100%; border-radius: 10px; border: 1px solid var(--border); background: #070b14; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <!-- 顶部总控栏 -->
+    <div class="card topbar">
+      <div class="brand">
+        <h1>✨ Codex 全息桌宠 · 三合一互动工作台</h1>
+        <p>一个透明小人集成【倒咖啡 / 挖土搓澡 / 真人&鼠标羽毛球】｜无需连接外设或摄像头也能纯鼠标/按钮畅玩</p>
+      </div>
+      <div class="pill-row">
+        <span class="pill ok" id="srvPill">● 本地中枢在线</span>
+        <span class="pill warn" id="petPill">○ 检测桌宠中…</span>
+        <span class="pill" id="codexPill">🤖 Codex 状态检查中</span>
+        <button class="btn primary" id="btnChatPet">💬 戳桌宠聊天</button>
+        <button class="btn gold" id="btnWakePet">🐣 拉起/切换透明桌宠</button>
+        <button class="btn" id="btnOpenHoloGuide">🔮 塑料瓶全息制法</button>
+        <button class="btn" id="btnOpenPrivacy">🔒 隐私与零权限</button>
+        <button class="btn" id="btnOpenNetHelp">🌐 网络/浏览器避坑</button>
+        <button class="btn red" id="btnShutdown">⏻ 停止全部</button>
+      </div>
+    </div>
+
+    <!-- 1. 三合一功能切换 -->
+    <div class="card">
+      <div class="mode-grid">
+        <button class="mode-card active" data-mode="coffee" id="cardCoffee">
+          <div class="mode-head"><span>☕ 跨屏倒咖啡</span><span class="mode-badge">三屏 / 可单电脑玩</span></div>
+          <div class="mode-desc">Codex 边敲代码边等待；手机倒流进全息玻璃杯，满 80% 时桌面小人起身接杯喝下并说 Thanks！</div>
+        </button>
+        <button class="mode-card" data-mode="strike" id="cardStrike">
+          <div class="mode-head"><span>🛁 挖土罢工 &amp; 全息搓澡</span><span class="mode-badge">三屏 / 免键盘&amp;免拖</span></div>
+          <div class="mode-desc">猛敲打字（或点按钮）触发累趴离场、全息挖彩蛋、4.5 倍景深甩泥到电脑屏幕、推木桶调温、海绵搓背弹❓！</div>
+        </button>
+        <button class="mode-card" data-mode="badminton" id="cardBadminton">
+          <div class="mode-head"><span>🏸 羽毛球对打（开挂七连发）</span><span class="mode-badge">双屏 / 支持纯鼠标</span></div>
+          <div class="mode-desc">摄像头识别五指/球拍，或完全不开摄像头用鼠标直接挥拍扣杀！打赢 5 球后 Codex 气急开挂七球连发～</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- 2. 空白电脑适配 & 零权限隐私开关 -->
+    <div class="card">
+      <div class="privacy-strip">
+        <div class="ctrl-box">
+          <div class="ctrl-title"><span>🤖 Codex 工作状态</span><span id="workBadge" style="color:var(--cyan);">自动</span></div>
+          <div class="ctrl-sub" id="workHint">空白电脑无 Codex CLI 时可直接手动模拟体验</div>
+          <div class="seg" id="workSeg">
+            <button data-work="auto" class="on">自动读取</button>
+            <button data-work="working">模拟工作中</button>
+            <button data-work="idle">模拟空闲</button>
+          </div>
+        </div>
+        <div class="ctrl-box">
+          <div class="ctrl-title"><span>🔮 全息展示模式</span><span style="color:var(--amber);">支持免棱镜</span></div>
+          <div class="ctrl-sub">无 1×6×3.5cm 塑料金字塔时选「单图直看」</div>
+          <div class="seg" id="facesSeg">
+            <button data-faces="4" class="on">四面全息罩</button>
+            <button data-faces="1">单图直看</button>
+          </div>
+        </div>
+        <div class="ctrl-box">
+          <div class="ctrl-title"><span>🏸 羽毛球操作方式</span><span id="bmCtrlBadge" style="color:var(--green);">免摄像头可用</span></div>
+          <div class="ctrl-sub">不开摄像头/没装 AI 依赖时默认纯鼠标代打</div>
+          <div class="seg" id="bmCtrlSeg">
+            <button data-bm="camera">📷 摄像头识别</button>
+            <button data-bm="mouse" class="on">🖱️ 纯鼠标挥拍</button>
+          </div>
+        </div>
+        <div class="ctrl-box">
+          <div class="ctrl-title"><span>🔒 键盘节奏统计权限</span><span style="color:var(--green);">纯本地不保存</span></div>
+          <div class="ctrl-sub">只记按键次数不存任何字符；可随时关掉纯按按钮</div>
+          <div class="seg" id="kbSeg">
+            <button data-kb="1" class="on">开启敲击感应</button>
+            <button data-kb="0">关读键盘·纯按钮</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 电脑端同屏多视角实时预览与直控台 -->
+    <div class="card">
+      <div class="stage-toolbar">
+        <div>
+          <strong id="stageTitle" style="font-size:15px;">💻 电脑同屏多端联调预览（无需手机/金字塔也能看全套效果并点小人互动）</strong>
+        </div>
+        <div class="pill-row" id="stageQuickBtns"></div>
+      </div>
+      <div class="stage-grid" id="stageGrid"></div>
+    </div>
+
+    <!-- 4. 手机扫码登录各自页面 -->
+    <div class="card">
+      <div class="topbar" style="margin-bottom:8px;">
+        <div>
+          <strong style="font-size:15px;">📱 多手机同连一个 Wi-Fi · 扫码进入各自页面</strong>
+          <p style="font-size:12px;color:var(--muted);margin-top:2px;">自动过滤 VPN/Clash/虚拟网卡；请保持电脑与手机在同一路由器下（勿连访客隔离 Wi-Fi）</p>
+        </div>
+        <div class="pill-row">
+          <select class="ip-select" id="ipSelect"></select>
+          <a class="btn" href="/guide" target="_blank">🧭 详细向导页 ↗</a>
+        </div>
+      </div>
+      <div class="qr-grid" id="qrGrid"></div>
+    </div>
+  </div>
+
+  <!-- 弹框 1：塑料瓶 1cm / 6cm / 3.5cm DIY 全息罩说明 -->
+  <dialog class="modal" id="dlgHolo">
+    <div class="modal-head">
+      <h2>🔮 自制塑料瓶全息罩 &amp; Pepper's Ghost 成像原理</h2>
+      <button class="btn" onclick="this.closest('dialog').close()">关闭 ✕</button>
+    </div>
+    <div class="modal-body">
+      <p>利用 <strong>Pepper's Ghost（佩珀尔幻象）45° 光学虚像反射</strong>：透明梯形薄膜与手机屏幕呈 <strong>~44.4°（约 45°）</strong> 夹角，将平放手机上的四面亮像素（黑底透光对比）反射汇聚成悬浮在金字塔中央的 3D 立体小人。</p>
+      <img class="diagram" src="/docs/diagrams/peppers_ghost_optics.svg" alt="Pepper's Ghost 光学反射与 1cm/6cm/3.5cm 裁切图">
+      <ul>
+        <li><strong>选材</strong>：矿泉水瓶或透明饮料瓶<strong>中段平整无花纹透明壁</strong>（也可用透明 PVC 片 / 亚克力片）。</li>
+        <li><strong>裁切比例（4 片相同等腰梯形）</strong>：<strong>上底 1 cm</strong> · <strong>下底 6 cm</strong> · <strong>梯形高 3.5 cm</strong>，折叠粘合后高度约 2.45 cm、斜角恰为 44.4°！</li>
+        <li><strong>摆放要点</strong>：把梯形<strong>小口 (1 cm) 朝下倒扣</strong>放在手机屏幕正中心，关闭周围强顶灯，手机调高亮度并点击「⛶ 全屏清屏模式」效果最立体。</li>
+      </ul>
+    </div>
+  </dialog>
+
+  <!-- 弹框 2：零权限与本地安全隐私说明 -->
+  <dialog class="modal" id="dlgPrivacy">
+    <div class="modal-head">
+      <h2>🔒 权限说明与纯本地隐私保证（可零权限畅玩）</h2>
+      <button class="btn" onclick="this.closest('dialog').close()">关闭 ✕</button>
+    </div>
+    <div class="modal-body">
+      <p>本项目所有计算与渲染<strong>100% 在您自己的电脑与局域网手机之间运行，绝不连接任何第三方服务器</strong>，代码全开源可审计：</p>
+      <ul>
+        <li><strong>Codex / GPT 工作状态映射（可选）</strong>：只在本机只读检查会话状态标签（工作中/空闲），不读对话正文；若您电脑从未装过 Codex CLI，直接在工作台点<strong>「模拟工作中 / 空闲」</strong>即可跳过并正常倒咖啡或罢工。</li>
+        <li><strong>电脑摄像头（可选，默认可关闭）</strong>：仅在您点击开启时于本机内存实时识别手部 21 关节点，不录像、不存图、不上传；若无摄像头或介意隐私，点<strong>「🖱️ 纯鼠标挥拍」</strong>同样流畅对打、扣杀与连发。</li>
+        <li><strong>键盘节奏感应（可选，可一键关闭）</strong>：仅在「挖土罢工」模式下统计每秒按键次数，绝不记录、存储或发送具体字母与密码；点击<strong>「关读键盘·纯按钮」</strong>即彻底停用，用网页按钮一样触发全套挖土与搓澡流程。</li>
+      </ul>
+    </div>
+  </dialog>
+
+  <!-- 弹框 3：Wi-Fi 与网页浏览器限制避坑指南 -->
+  <dialog class="modal" id="dlgNet">
+    <div class="modal-head">
+      <h2>🌐 局域网 Wi-Fi 配置与浏览器常见限制避坑</h2>
+      <button class="btn" onclick="this.closest('dialog').close()">关闭 ✕</button>
+    </div>
+    <div class="modal-body">
+      <img class="diagram" src="/docs/diagrams/multi_screen_architecture.svg" alt="三屏联动原理架构图">
+      <ul>
+        <li><strong>为什么必须连同一 Wi-Fi？</strong>手机端通过局域网 HTTP + SSE 长连接直连电脑 <code>29765</code> 端口。校园网/公司公共 Wi-Fi 常开启「AP 客户端隔离」导致手机扫不通电脑——可改为家用路由器 Wi-Fi，或直接用手机开个人热点让电脑连上即可。</li>
+        <li><strong>Clash / VPN 虚拟 IP 踩坑</strong>：开着代理工具时系统可能出现 <code>198.18.*</code> 虚拟网卡。如遇手机打不开，请在上方 IP 下拉框切换为 <code>192.168.*</code> 真实无线网卡 IP，或关闭 TUN 代理模式。</li>
+        <li><strong>Windows 防火墙拦截</strong>：首次运行若弹出 Windows 安全警报，请务必同时勾选「专用网络」和「公用网络」并点击允许，放行 Python <code>29765</code> 端口。</li>
+        <li><strong>浏览器声音与传感器限制如何避免？</strong>
+          1) iOS Safari/安卓浏览器禁止网页未点击自动播声音——进入手机页后轻触一次画面或点击「开启声音」即解锁；
+          2) 现代浏览器禁止在非 HTTPS 局域网地址里直接调手机陀螺仪或手机摄像头——因此本项目把摄像头识别留在电脑本机（<code>127.0.0.1</code> 安全上下文），而手机端采用「触控左滑倾倒 / 滑条 / 按钮」做零证书免报错的流畅交互，无需折腾根证书也能 100% 玩透！</li>
+      </ul>
+    </div>
+  </dialog>
+
+  <script defer src="/coffee/workbench.js"></script>
+</body>
+</html>

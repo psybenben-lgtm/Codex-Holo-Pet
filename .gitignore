@@ -1,0 +1,28 @@
+# Python & local virtualenv / runtime
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+.rally-runtime/
+.runtime/
+*.egg-info/
+dist/
+build/
+builds/*.zip
+
+# Privacy-sensitive local certificates, runtime IPs, & logs
+coffee/.lan-certificate/
+*.pem
+*.cer
+*.key
+*.log
+手机连接向导.html
+qr_*.png
+.playwright-cli/
+assets/vosk-model-small-cn-0.22/
+assets/*.download
+
+# OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store

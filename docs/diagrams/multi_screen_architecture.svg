@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+  <defs>
+    <linearGradient id="bgArch" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#070b14"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <marker id="arrC" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#4ade80"/>
+    </marker>
+    <marker id="arrY" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#facc15"/>
+    </marker>
+  </defs>
+
+  <rect width="960" height="540" rx="16" fill="url(#bgArch)"/>
+  <text x="480" y="34" text-anchor="middle" fill="#f8fafc" font-size="20" font-weight="800" font-family="Microsoft YaHei, PingFang SC, sans-serif">Codex 全息桌宠三合一 · 多屏实时联动与状态同步原理图</text>
+  <text x="480" y="56" text-anchor="middle" fill="#94a3b8" font-size="12.5" font-family="Microsoft YaHei, sans-serif">统一局域网中枢 coffee_server.py (:29765) · SSE 毫秒级时钟校时同步 · 支持「3屏 / 2屏 / 仅1台电脑浏览器」自由降级</text>
+
+  <!-- 左侧：终端 1 Windows 透明桌宠 -->
+  <rect x="28" y="84" width="272" height="280" rx="14" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+  <text x="164" y="112" text-anchor="middle" fill="#38bdf8" font-size="15" font-weight="800" font-family="Microsoft YaHei, sans-serif">💻 终端 1：Windows 透明桌宠</text>
+  <text x="164" y="132" text-anchor="middle" fill="#94a3b8" font-size="11.5" font-family="Microsoft YaHei, sans-serif">Win32 分层透明窗口（无黑框/可拖动/点击对话）</text>
+  <rect x="44" y="148" width="240" height="58" rx="8" fill="#172554" stroke="#1e40af"/>
+  <text x="56" y="170" fill="#fde047" font-size="12.5" font-weight="700" font-family="Microsoft YaHei, sans-serif">☕ 倒咖啡状态联动</text>
+  <text x="56" y="191" fill="#cbd5e1" font-size="11.5" font-family="Microsoft YaHei, sans-serif">工位敲代码 → 满杯走去接杯喝下 &amp; 说 Thanks</text>
+
+  <rect x="44" y="216" width="240" height="68" rx="8" fill="#172554" stroke="#1e40af"/>
+  <text x="56" y="238" fill="#fb923c" font-size="12.5" font-weight="700" font-family="Microsoft YaHei, sans-serif">🛁 挖土罢工 &amp; 搓澡反馈</text>
+  <text x="56" y="257" fill="#cbd5e1" font-size="11.5" font-family="Microsoft YaHei, sans-serif">叹气扛铲离场 → 全屏湿泥飞溅 → 背面搓澡</text>
+  <text x="56" y="274" fill="#cbd5e1" font-size="11.5" font-family="Microsoft YaHei, sans-serif">搓头瞬间猛扭头弹出大黑问号【❓】</text>
+
+  <rect x="44" y="294" width="240" height="58" rx="8" fill="#172554" stroke="#1e40af"/>
+  <text x="56" y="316" fill="#4ade80" font-size="12.5" font-weight="700" font-family="Microsoft YaHei, sans-serif">🏸 羽毛球透明覆盖层</text>
+  <text x="56" y="337" fill="#cbd5e1" font-size="11.5" font-family="Microsoft YaHei, sans-serif">摄像头五指/球拍 或 免摄纯鼠标接球扣杀连发</text>
+
+  <!-- 中间：权威状态机与本地中枢 -->
+  <rect x="344" y="96" width="272" height="256" rx="16" fill="#111827" stroke="#facc15" stroke-width="2"/>
+  <text x="480" y="126" text-anchor="middle" fill="#fde047" font-size="15.5" font-weight="800" font-family="Microsoft YaHei, sans-serif">⚙️ 本地中枢 coffee_server.py</text>
+  <text x="480" y="146" text-anchor="middle" fill="#4ade80" font-size="12" font-weight="700" font-family="Microsoft YaHei, sans-serif">HTTP :29765 ｜ 100% 局域网纯本地零上传</text>
+  <rect x="362" y="162" width="236" height="46" rx="8" fill="#1e293b"/>
+  <text x="480" y="182" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="700" font-family="Microsoft YaHei, sans-serif">SSE 事件流 + 客户端时钟校准 (/clock)</text>
+  <text x="480" y="199" text-anchor="middle" fill="#94a3b8" font-size="11" font-family="Microsoft YaHei, sans-serif">统一发号与落点时间戳，跨屏飞出→入屏零误差</text>
+  <rect x="362" y="216" width="236" height="56" rx="8" fill="#1e293b"/>
+  <text x="480" y="236" text-anchor="middle" fill="#38bdf8" font-size="12" font-weight="700" font-family="Microsoft YaHei, sans-serif">🤖 Codex / GPT 工作状态适配器</text>
+  <text x="480" y="254" text-anchor="middle" fill="#cbd5e1" font-size="11" font-family="Microsoft YaHei, sans-serif">读取 ~/.codex 状态；无 CLI 可一键模拟工作/空闲</text>
+  <rect x="362" y="280" width="236" height="58" rx="8" fill="#1e293b"/>
+  <text x="480" y="300" text-anchor="middle" fill="#c084fc" font-size="12" font-weight="700" font-family="Microsoft YaHei, sans-serif">🧭 三合一工作台 (/) &amp; 扫码中心</text>
+  <text x="480" y="318" text-anchor="middle" fill="#cbd5e1" font-size="11" font-family="Microsoft YaHei, sans-serif">过滤 198.18.* 代理虚拟 IP + 电脑同屏三视角预览</text>
+
+  <!-- 右上：终端 2 全息投影端 -->
+  <rect x="660" y="84" width="272" height="132" rx="14" fill="#0f172a" stroke="#c084fc" stroke-width="2"/>
+  <text x="796" y="110" text-anchor="middle" fill="#c084fc" font-size="14.5" font-weight="800" font-family="Microsoft YaHei, sans-serif">🔮 终端 2：全息金字塔机 (手机 A)</text>
+  <text x="676" y="132" fill="#cbd5e1" font-size="11.5" font-family="Microsoft YaHei, sans-serif">• 咖啡：玻璃杯接住跨屏流入的液柱</text>
+  <text x="676" y="151" fill="#cbd5e1" font-size="11.5" font-family="Microsoft YaHei, sans-serif">• 罢工：变装挖土彩蛋 + 甩泥 + 鸭子泡澡</text>
+  <text x="676" y="170" fill="#cbd5e1" font-size="11.5" font-family="Microsoft YaHei, sans-serif">• 羽毛球：全息微型发球机同步发射回球</text>
+  <text x="676" y="192" fill="#4ade80" font-size="11.5" font-weight="700" font-family="Microsoft YaHei, sans-serif">✨ 支持一键切【四面全息】或【单图直看】</text>
+
+  <!-- 右下：终端 3 手机交互控制器 -->
+  <rect x="660" y="232" width="272" height="132" rx="14" fill="#0f172a" stroke="#4ade80" stroke-width="2"/>
+  <text x="796" y="258" text-anchor="middle" fill="#4ade80" font-size="14.5" font-weight="800" font-family="Microsoft YaHei, sans-serif">📱 终端 3：手机触控端 (手机 B)</text>
+  <text x="676" y="280" fill="#cbd5e1" font-size="11.5" font-family="Microsoft YaHei, sans-serif">• 倒咖啡：左滑倾斜 / 滑条倒液，无需 HTTPS</text>
+  <text x="676" y="299" fill="#cbd5e1" font-size="11.5" font-family="Microsoft YaHei, sans-serif">• 搓澡：推浴缸(含快捷按钮)/水温龙虾/海绵擦</text>
+  <text x="676" y="318" fill="#cbd5e1" font-size="11.5" font-family="Microsoft YaHei, sans-serif">• 羽毛球：可选双屏遥控（或直接用电脑/小鼠）</text>
+  <text x="676" y="340" fill="#fde047" font-size="11.5" font-weight="700" font-family="Microsoft YaHei, sans-serif">✨ 无多余手机时，电脑工作台右侧直接代操作</text>
+
+  <!-- 连线箭头 -->
+  <line x1="300" y1="224" x2="342" y2="224" stroke="#38bdf8" stroke-width="2.5" marker-start="url(#arrC)" marker-end="url(#arrC)"/>
+  <line x1="616" y1="154" x2="658" y2="154" stroke="#c084fc" stroke-width="2.5" marker-start="url(#arrY)" marker-end="url(#arrY)"/>
+  <line x1="616" y1="296" x2="658" y2="296" stroke="#4ade80" stroke-width="2.5" marker-start="url(#arrG)" marker-end="url(#arrG)"/>
+
+  <!-- 底部对比栏 -->
+  <rect x="28" y="388" width="904" height="126" rx="14" fill="#0b1220" stroke="#334155"/>
+  <text x="48" y="416" fill="#fde047" font-size="14" font-weight="800" font-family="Microsoft YaHei, sans-serif">不同玩法对应的设备组合（支持【三屏全开】，也支持【仅 1 台空白电脑浏览器】降级体验）：</text>
+  <text x="48" y="442" fill="#cbd5e1" font-size="12.5" font-family="Microsoft YaHei, sans-serif">1️⃣ <tspan fill="#38bdf8" font-weight="700">完整三屏模式</tspan>（倒咖啡 / 搓澡）：电脑桌宠 + 手机 A(全息金字塔) + 手机 B(倒咖啡/浴缸搓澡触控端)。</text>
+  <text x="48" y="466" fill="#cbd5e1" font-size="12.5" font-family="Microsoft YaHei, sans-serif">2️⃣ <tspan fill="#c084fc" font-weight="700">双屏模式</tspan>（打羽毛球）：电脑桌宠(摄像头/纯鼠标接球) + 手机 A(全息发球机)；可选第 2 台手机作辅助遥控。</text>
+  <text x="48" y="490" fill="#cbd5e1" font-size="12.5" font-family="Microsoft YaHei, sans-serif">3️⃣ <tspan fill="#4ade80" font-weight="700">极简零外设模式</tspan>（仅有 1 台电脑）：打开主页工作台「/」同屏嵌入三视角 + 纯鼠标打球 + 模拟按钮，照样跑通全流程！</text>
+</svg>

@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>电子打工仔挖土罢工 &amp; 全息洗浴搓澡 · 三端同屏联调与导播中枢</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --card: rgba(17, 25, 42, 0.86);
+      --border: rgba(148, 163, 184, 0.18);
+      --cyan: #38bdf8;
+      --green: #4ade80;
+      --amber: #facc15;
+      --orange: #fb923c;
+      --red: #f87171;
+      --purple: #c084fc;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #070b14 70%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      min-height: 100vh;
+      padding: 18px 16px 48px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .shell {
+      width: 100%;
+      max-width: 1260px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+    }
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .badge-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      background: rgba(74, 222, 128, 0.15);
+      border: 1px solid rgba(74, 222, 128, 0.4);
+      color: var(--green);
+    }
+    .brand-title h1 {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+    }
+    .top-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 9px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid rgba(255,255,255,0.12);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      color: #fff;
+      background: #1e293b;
+      text-decoration: none;
+    }
+    .btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+    .btn:active { transform: scale(0.97); }
+    .btn-gold {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      border-color: #fbbf24;
+      color: #090d16;
+      font-weight: 800;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+    }
+    .btn-cyan { background: linear-gradient(135deg, #0284c7, #0369a1); }
+    .btn-green { background: linear-gradient(135deg, #16a34a, #15803d); }
+    .btn-orange { background: linear-gradient(135deg, #ea580c, #c2410c); }
+    .btn-red { background: linear-gradient(135deg, #dc2626, #991b1b); }
+    .btn-purple { background: linear-gradient(135deg, #9333ea, #6b21a8); }
+
+    /* 三端同屏实时联调预览舞台 */
+    .tri-stage-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 1024px) {
+      .tri-stage-grid { grid-template-columns: 1fr; }
+    }
+    .screen-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+    }
+    .screen-header {
+      padding: 10px 14px;
+      background: rgba(15, 23, 42, 0.9);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .screen-header span.tag {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--cyan);
+    }
+    .iframe-wrap {
+      width: 100%;
+      height: 360px;
+      background: #000;
+      position: relative;
+    }
+    .iframe-wrap iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+
+    /* 状态仪表与导播控制台 */
+    .control-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.6fr;
+      gap: 16px;
+    }
+    @media (max-width: 960px) {
+      .control-grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .state-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(15, 23, 42, 0.75);
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .state-pill {
+      font-size: 16px;
+      font-weight: 800;
+      padding: 5px 12px;
+      border-radius: 8px;
+      background: rgba(56, 189, 248, 0.2);
+      color: var(--cyan);
+    }
+    .meter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .meter-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #cbd5e1;
+      font-weight: 600;
+    }
+    .meter-bar {
+      height: 10px;
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .meter-fill {
+      height: 100%;
+      width: 0%;
+      transition: width 0.15s ease-out;
+      border-radius: 999px;
+    }
+    .meter-fill.fatigue {
+      background: linear-gradient(90deg, #22c55e, #eab308 40%, #f97316 75%, #ef4444 100%);
+    }
+    .meter-fill.clean {
+      background: linear-gradient(90deg, #38bdf8, #4ade80);
+    }
+    .stage-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .stage-section:last-child { border-bottom: none; padding-bottom: 0; }
+    .stage-label {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--amber);
+      letter-spacing: 0.04em;
+    }
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .btn-row .btn {
+      flex: 1;
+      min-width: 135px;
+      font-size: 12.5px;
+      padding: 8px 10px;
+    }
+    .lan-box {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 12px;
+      line-height: 1.7;
+      color: #cbd5e1;
+    }
+    .lan-box code {
+      color: var(--cyan);
+      font-family: Consolas, monospace;
+      user-select: all;
+    }
+    .log-box {
+      font-family: Consolas, monospace;
+      font-size: 12px;
+      color: #94a3b8;
+      background: rgba(9, 13, 22, 0.9);
+      border-radius: 10px;
+      padding: 10px 12px;
+      height: 110px;
+      overflow-y: auto;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <!-- 顶部总控栏 -->
+    <div class="topbar">
+      <div class="brand-title">
+        <span class="badge-live" id="connBadge">● 实时同步在线</span>
+        <h1>电子打工仔挖土罢工 &amp; 全息洗浴搓澡 · 三端同屏联调中枢</h1>
+      </div>
+      <div class="top-actions">
+        <a class="btn btn-cyan" href="/" style="text-decoration:none;display:inline-flex;align-items:center;">✨ 三合一工作台</a>
+        <a class="btn" href="/badminton/director" style="text-decoration:none;display:inline-flex;align-items:center;">🏸 羽毛球导演台</a>
+        <a class="btn" href="/guide" style="text-decoration:none;display:inline-flex;align-items:center;">🧭 连接向导</a>
+        <button class="btn btn-gold" onclick="returnToOffice()">🏠 回到工位 (收起铲子回办公室)</button>
+        <button class="btn btn-red" onclick="triggerThrow()">💥 一键暴怒跨屏甩泥</button>
+        <button class="btn btn-cyan" onclick="pushBathtub()">🛁 推入浴缸泡澡</button>
+        <button class="btn btn-green" onclick="startScrub()">🧽 电脑背向搓澡</button>
+        <button class="btn" onclick="resetState()">🔄 彻底重置</button>
+        <button class="btn btn-red" id="btnShutdownAll" onclick="shutdownAll()">⏻ 关闭桌面与服务</button>
+      </div>
+    </div>
+
+    <!-- 三端同屏实时联调预览窗（解决本地多端调试痛点：单屏同时观察并操作三端！） -->
+    <div class="tri-stage-grid">
+      <!-- 终端 1：电脑桌宠工位 & 湿泥受击 & 背面搓澡预览 -->
+      <div class="screen-card">
+        <div class="screen-header">
+          <span>💻 终端 1：Windows 电脑端 (工位 ⇋ 湿泥爆裂 ⇋ 背面搓澡)</span>
+          <a href="/coffee/desk" target="_blank" class="tag">独立打开 ↗</a>
+        </div>
+        <div class="iframe-wrap">
+          <iframe src="/coffee/desk" title="电脑工位与搓澡预览"></iframe>
+        </div>
+      </div>
+
+      <!-- 终端 2：手机 3D 全息投影 (挖土 / 彩蛋 / 4.5倍甩泥 / 小黄鸭木桶泡澡) -->
+      <div class="screen-card">
+        <div class="screen-header">
+          <span>🔮 终端 2：手机 3D 全息端 (变装挖土 ⇋ 迎面甩泥 ⇋ 木桶泡澡)</span>
+          <a href="/coffee/holo?mode=strike&faces=4" target="_blank" class="tag">四面金字塔 ↗</a>
+        </div>
+        <div class="iframe-wrap">
+          <iframe src="/coffee/holo?mode=strike&embed=1" title="3D全息端预览"></iframe>
+        </div>
+      </div>
+
+      <!-- 终端 3：iPhone 触控交互端 (向上推浴缸 / 旋钮调温 / 海绵擦搓澡) -->
+      <div class="screen-card">
+        <div class="screen-header">
+          <span>📱 终端 3：iPhone 触控端 (直接在此推浴缸 / 拧旋钮 / 滑海绵)</span>
+          <a href="/coffee/bath" target="_blank" class="tag">独立打开 ↗</a>
+        </div>
+        <div class="iframe-wrap">
+          <iframe src="/coffee/bath" title="iPhone触控端预览"></iframe>
+        </div>
+      </div>
+    </div>
+
+    <!-- 下方状态监控与全流程微表情导播按钮 -->
+    <div class="control-grid">
+      <!-- 左侧：实时状态机与真机局域网直连地址 -->
+      <div class="card">
+        <div class="card-title">
+          <span>📊 全生命周期状态监控</span>
+          <span style="font-size:12px;color:#38bdf8;">💡 直接在当前网页按任意键盘按键也可实时驱动挖土！</span>
+        </div>
+
+        <div class="state-banner">
+          <div>
+            <div style="font-size:11px;color:#94a3b8;margin-bottom:3px;">当前生命周期状态</div>
+            <div class="state-pill" id="statePill">OFFICE_IDLE · 工位待机</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px;color:#94a3b8;margin-bottom:3px;">敲键频率 / 挥铲能量</div>
+            <div style="font-size:16px;font-weight:800;color:#fde047;" id="energyText">0.0 键/秒 (0.0/10)</div>
+          </div>
+        </div>
+
+        <div class="meter-group">
+          <div class="meter-label">
+            <span>⛏️ 挖土怒气与疲劳累积 (32% 喘气擦汗 → 65% 怀疑人生/怒火 → 100% 甩泥)</span>
+            <span id="fatigueText">0.0%</span>
+          </div>
+          <div class="meter-bar">
+            <div class="meter-fill fatigue" id="fatigueFill"></div>
+          </div>
+        </div>
+
+        <div class="meter-group">
+          <div class="meter-label">
+            <span>🧽 玩偶后背去泥污洁净度 (达到 100% 叮一声冒金色小星星换回干净衣服)</span>
+            <span id="cleanText">0.0%</span>
+          </div>
+          <div class="meter-bar">
+            <div class="meter-fill clean" id="cleanFill"></div>
+          </div>
+        </div>
+
+        <div class="lan-box" id="lanBox">
+          <div><strong>📲 手机真机直连地址 (同一 Wi-Fi 下用手机浏览器打开)：</strong></div>
+          <div>🔮 荣耀/全息手机 (四面金字塔)：<code id="urlHolo">加载中...</code></div>
+          <div>🛁 iPhone 触控端 (推浴缸/搓澡)：<code id="urlBath">加载中...</code></div>
+          <div>☕ iPhone 倒咖啡控制端：<code id="urlPour">加载中...</code></div>
+        </div>
+
+        <div class="log-box" id="logBox">
+          [系统就绪] 三端同屏联调中枢已启动，支持键盘直接敲击或点击右侧按钮逐项验收微表情！
+        </div>
+      </div>
+
+      <!-- 右侧：全套核心功能与微表情一键验收导播台 -->
+      <div class="card">
+        <div class="card-title">
+          <span>🎬 核心微表情与跨端交互逐项验收导播台</span>
+          <button class="btn btn-gold" style="padding:5px 12px;font-size:12px;" onclick="returnToOffice()">🏠 立即回到工位</button>
+        </div>
+
+        <!-- 1. 跨端叹气走位与节奏挖土 -->
+        <div class="stage-section">
+          <div class="stage-label">① 办公工位 ⇋ 900ms 叹气变装跨屏走位 &amp; 键盘节奏挖土</div>
+          <div class="btn-row">
+            <button class="btn btn-cyan" onclick="simulateHits(2)">🐢 慢速敲键 (+2 从容挥铲)</button>
+            <button class="btn btn-orange" onclick="simulateFastBurst()">⚡ 高速快打 (&gt;5键/秒 铲头带残影)</button>
+            <button class="btn" onclick="log('停止敲键超过 300ms：小人自动停铲，双手扶木柄前倾大口喘气，呼出白气团')">😮‍💨 停打 &gt;300ms 扶铲喘气</button>
+          </div>
+        </div>
+
+        <!-- 2. 挖土随机彩蛋 -->
+        <div class="stage-section">
+          <div class="stage-label">② 挖土随机彩蛋 (铲出小物件 → 愣神低头看一眼 → 随手一脚踢到旁边继续挖)</div>
+          <div class="btn-row">
+            <button class="btn btn-purple" onclick="triggerDiscover(0)">👟 铲出【破烂旧球鞋】</button>
+            <button class="btn btn-purple" onclick="triggerDiscover(1)">🥫 铲出【压扁易拉罐】</button>
+            <button class="btn btn-purple" onclick="triggerDiscover(2)">🪙 铲出【闪亮小金币】</button>
+          </div>
+        </div>
+
+        <!-- 3. 愤怒 5 阶段演化与 520ms 电脑受击湿泥流淌 -->
+        <div class="stage-section">
+          <div class="stage-label">③ 愤怒 5 阶段微表情演化 &amp; 520ms 电脑屏幕大块湿泥爆裂流淌</div>
+          <div class="btn-row">
+            <button class="btn btn-orange" onclick="triggerAngry(1)">🤲 阶段1：插铲看双手微颤 (怀疑人生)</button>
+            <button class="btn btn-red" onclick="triggerAngry(2)">💢 阶段2：圆睁眼+倒竖眉+十字青筋</button>
+            <button class="btn btn-red" onclick="triggerThrow()">☄️ 阶段3~5：深蹲抱泥 → 4.5x迎面甩泥 → 叉腰跺脚</button>
+          </div>
+        </div>
+
+        <!-- 4. 全息木桶泡澡（彩色泡泡 + 橡皮小鸭子 + 龙虾烫跳） -->
+        <div class="stage-section">
+          <div class="stage-label">④ 全息木桶泡澡 (PG合规：高出边缘彩色泡泡 + 漂浮小黄鸭 + 过烫变红龙虾乱叫跳出)</div>
+          <div class="btn-row">
+            <button class="btn btn-cyan" onclick="pushBathtub()">🛁 第一步：推入温水浴缸入场</button>
+            <button class="btn btn-green" onclick="setBathTemp(42)">😌 第二步：42°C 温水眯眼享受泡澡</button>
+            <button class="btn btn-red" onclick="setBathTemp(86)">🦞 第二步：86°C 过烫变红龙虾跳出水面!</button>
+          </div>
+        </div>
+
+        <!-- 5. 电脑桌宠 100% 背对镜头搓澡与绝妙黑问号微表情 -->
+        <div class="stage-section">
+          <div class="stage-label">⑤ 电脑桌宠背面搓澡 (深蓝小黄鸭大短裤 + 纯白泡泡云 + 像素马赛克 + 搓头扭头弹黑问号❓)</div>
+          <div class="btn-row">
+            <button class="btn btn-cyan" onclick="startScrub()">🚶 湿漉漉走回电脑准备搓澡</button>
+            <button class="btn btn-green" onclick="scrubBack(25)">🧽 搓后背：Q弹形变+舒服眯眼哼哼 (+25%)</button>
+            <button class="btn btn-red" onclick="scrubHead()">❓ 搓错头部：瞬间僵住+猛扭头弹出大黑问号【❓】</button>
+            <button class="btn btn-gold" onclick="scrubBack(100)">✨ 搓完全身 100%：叮一声冒金色小星星!</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const statePill = document.getElementById('statePill');
+    const fatigueFill = document.getElementById('fatigueFill');
+    const fatigueText = document.getElementById('fatigueText');
+    const cleanFill = document.getElementById('cleanFill');
+    const cleanText = document.getElementById('cleanText');
+    const energyText = document.getElementById('energyText');
+    const logBox = document.getElementById('logBox');
+    const connBadge = document.getElementById('connBadge');
+
+    function log(msg) {
+      const now = new Date().toTimeString().split(' ')[0];
+      const div = document.createElement('div');
+      div.textContent = `[${now}] ${msg}`;
+      logBox.appendChild(div);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    const stateMap = {
+      OFFICE_IDLE: '💻 OFFICE_IDLE · 工位敲代码/喝咖啡待机',
+      OFFICE_WORK: '💻 OFFICE_WORK · 正在跑 Codex 任务',
+      LEAVING: '😮‍💨 LEAVING · 叹气起身握铲 → 900ms 跨端走位',
+      RETURNING: '🏠 RETURNING · 收起铲子平滑走回办公室工位',
+      RESTING: '😮‍💨 RESTING · 停打 >300ms 扶铲大口喘气',
+      WORKING: '⛏️ WORKING · 实时挥铲挖土扬尘',
+      TIRED: '😓 TIRED · 疲累挥铲擦汗',
+      ANGRY: '💢 ANGRY · 阶段1看双手微颤 / 阶段2怒火十字青筋',
+      THROWING: '☄️ THROWING · 深蹲抱泥 → 4.5倍景深迎面甩泥!',
+      STRIKE: '⛔ STRIKE · 浑身泥污双手叉腰原地跺脚抗议!',
+      BATH_ENTER: '🛁 BATH_ENTER · 木桶浴缸滑入全息中心',
+      BATH_SOAK: '🦆 BATH_SOAK · 全息木桶彩色泡泡浴 (小黄鸭伴游)',
+      BATH_RETURN: '🚶 BATH_RETURN · 泡完澡湿漉漉走回电脑桌宠',
+      SCRUBBING: '🧽 SCRUBBING · 电脑桌宠 100% 背面合规搓澡去污',
+      CLEAN_DONE: '✨ CLEAN_DONE · 叮！周身冒金色小星星换回干净衣服!'
+    };
+
+    function updateUI(data) {
+      if (!data) return;
+      const s = data.state || 'OFFICE_IDLE';
+      let label = stateMap[s] || s;
+      if (s === 'ANGRY') {
+        label = data.angry_stage === 2
+          ? '💢 ANGRY (阶段2) · 怒火中烧：圆睁眼+倒竖眉+十字青筋!'
+          : '🤲 ANGRY (阶段1) · 怀疑人生：插铲呆立翻看双手微颤';
+      } else if (s === 'BATH_SOAK' && data.bath?.hot_jump) {
+        label = '🦞 BATH_SOAK (过烫!) · 浑身烫红变龙虾哇呀乱叫跳出水面!';
+      } else if (s === 'SCRUBBING' && data.bath?.scrub_zone === 'head') {
+        label = '❓ SCRUBBING (搓错头!) · 瞬间一僵猛扭头弹出大黑问号【❓】';
+      }
+      statePill.textContent = label;
+
+      const f = Number(data.fatigue || 0);
+      fatigueFill.style.width = f + '%';
+      fatigueText.textContent = f.toFixed(1) + '%';
+
+      const c = Number(data.bath?.clean_progress || 0);
+      cleanFill.style.width = c + '%';
+      cleanText.textContent = c.toFixed(1) + '%';
+
+      const rate = Number(data.key_rate || 0);
+      const e = Number(data.energy || 0);
+      energyText.textContent = `${rate.toFixed(1)} 键/秒 (${e.toFixed(1)}/10)`;
+    }
+
+    function connectStream() {
+      const evt = new EventSource('/api/strike/stream');
+      evt.onopen = () => {
+        connBadge.textContent = '● 实时同步在线';
+        connBadge.style.color = '#4ade80';
+      };
+      evt.onmessage = ({ data }) => {
+        const snapshot = JSON.parse(data).data;
+        updateUI(snapshot);
+      };
+      evt.onerror = () => {
+        connBadge.textContent = '○ 自动重连中...';
+        connBadge.style.color = '#facc15';
+      };
+    }
+    connectStream();
+
+    fetch('/coffee/lan').then(r => r.json()).then(({ ip, http_port }) => {
+      const port = http_port || location.port || 29765;
+      document.getElementById('urlHolo').textContent = `http://${ip}:${port}/coffee/holo?mode=strike&faces=4`;
+      document.getElementById('urlBath').textContent = `http://${ip}:${port}/coffee/bath`;
+      document.getElementById('urlPour').textContent = `http://${ip}:${port}/coffee/pour`;
+    }).catch(() => {});
+
+    function apiPost(path, body = {}, msg = '') {
+      return fetch('/api/strike/' + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }).then(r => r.json()).then(snap => {
+        updateUI(snap);
+        if (msg) log(msg);
+        return snap;
+      }).catch(() => {});
+    }
+
+    function simulateHits(count) {
+      apiPost('input', { hits: count }, `输入模拟 ${count} 次敲键 -> 挥铲挖土`);
+    }
+
+    function simulateFastBurst() {
+      log('触发高速快打 (>5 键/秒)：观察全息小人挥铲线性加速、铲头出现像素残影、泥块密集飞起！');
+      let i = 0;
+      const timer = setInterval(() => {
+        apiPost('input', { hits: 4 });
+        if (++i >= 5) clearInterval(timer);
+      }, 110);
+    }
+
+    function triggerDiscover(kind) {
+      const names = ['👟 破烂旧球鞋', '🥫 压扁易拉罐', '🪙 闪亮小金币'];
+      apiPost('discover', { kind }, `触发挖土随机彩蛋：铲出 ${names[kind]}，小人愣神低头看一眼后一脚踢开！`);
+    }
+
+    function triggerAngry(stage) {
+      apiPost('angry', { stage }, stage === 1
+        ? '进入愤怒阶段 1（怀疑人生）：铁铲插地，举起肉乎乎双手翻来覆去看并微微颤抖。'
+        : '进入愤怒阶段 2（怒火中烧）：黑豆眼圆睁、眼角倒竖、双颊通红、头顶冒出红色十字青筋发抖！');
+    }
+
+    function triggerThrow() {
+      apiPost('trigger', {}, '触发阶段 3~5：深蹲抱起大团湿泥 → 4.5倍景深放大迎面甩泥 → 第520ms电脑屏幕爆裂流淌滴水 + 小人浑身泥污叉腰跺脚！');
+    }
+
+    function pushBathtub() {
+      apiPost('bath_push', {}, '第一步：向上推入像素木桶浴缸滑入全息中心，伴随水花声！');
+    }
+
+    function setBathTemp(temp) {
+      apiPost('bath_knob', { temp, foam: 85 }, temp >= 72
+        ? `第二步：水温拧到过烫 (${temp}°C)！全息小人浑身烫红像煮熟龙虾一样哇呀乱叫跳出水面！`
+        : `第二步：水温调至舒适温水 (${temp}°C)，彩色肥皂泡泡涌起，小黄鸭漂浮，小人眯眼享受～`);
+    }
+
+    function startScrub() {
+      apiPost('scrub_start', { immediate: false }, '第三步：小人泡完澡湿漉漉走回电脑桌宠窗口，100% 背对镜头准备搓澡去污！');
+    }
+
+    function scrubBack(delta) {
+      apiPost('scrub_move', { x: 0.5, y: 0.58, dx: 0.7, dy: 0.3, zone: 'back', delta },
+        `滑动清洁海绵擦搓后背 (+${delta}%)：电脑桌宠受力弹性形变，舒服眯眼哼哼 (~ ♪)，擦除泥斑冒出雪白泡沫！`);
+    }
+
+    function scrubHead() {
+      apiPost('scrub_move', { x: 0.5, y: 0.18, dx: 0, dy: 0, zone: 'head', delta: 0 },
+        '⚠️ 搓错位置（搓到头部）：小人动作瞬间一僵，脑袋猛扭回头，头顶弹出超大黑色问号【❓】无语瞪着搓澡巾！');
+    }
+
+    function returnToOffice() {
+      apiPost('return_office', {}, '🏠 点击【回到工位】：小人立即收起铲子，平滑转场走回办公室工位敲电脑！');
+    }
+
+    function resetState() {
+      apiPost('reset', {}, '🔄 已重置所有状态并清除屏幕泥巴。');
+    }
+
+    function shutdownAll() {
+      if (!confirm('确认停止本地后台服务并关闭桌面桌宠？')) return;
+      fetch('/api/system/shutdown', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      }).then(() => {
+        const b = document.getElementById('connBadge');
+        if (b) { b.textContent = '⏻ 服务与桌面已停止，可关闭本页'; b.style.color = '#f87171'; }
+        appendLog('✅ 已发送退出信号：桌面桌宠与本地服务已停止，您现在可安全关闭本网页标签。');
+        try { window.close(); } catch {}
+      }).catch(() => {});
+    }
+
+    // 支持在控制台页面直接敲击电脑键盘实时驱动挖土
+    window.addEventListener('keydown', e => {
+      if (e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
+      apiPost('input', { hits: 1 });
+    });
+  </script>
+</body>
+</html>

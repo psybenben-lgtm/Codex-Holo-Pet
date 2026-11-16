@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0c1019">
+  <title>Codex 全息桌宠 · 三端联动交互端</title>
+  <link rel="stylesheet" href="/coffee/coffee.css">
+  <script defer src="/coffee/pixel.js"></script>
+  <script defer src="/coffee/liquid.js"></script>
+  <script defer src="/coffee/strike_holo.js"></script>
+  <script defer src="/coffee/coffee.js"></script>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/coffee"><span>▤</span> CODEX HOLO STUDIO</a>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <a href="/" style="font-size:0.78rem;color:#fde047;font-weight:700;">✨ 三合一工作台</a>
+      <a href="/strike/dash" style="font-size:0.78rem;color:#38bdf8;font-weight:700;">📊 三端联调控制台 ↗</a>
+      <span class="link-state" id="connection" role="status">连接中</span>
+    </div>
+  </header>
+
+  <main id="lobby" hidden>
+    <div class="intro">
+      <p class="eyebrow">THREE-SCREEN INTERACTIVE SYSTEM</p>
+      <h1>给 Codex<br>倒咖啡 &amp; 挖土搓澡<span>。</span></h1>
+      <p class="subtitle">支持电脑透明桌宠 + 手机 3D 全息金字塔 + iPhone 触控推浴缸/拧旋钮/海绵搓澡与倾斜倒咖啡无缝联动。</p>
+      <div class="lobby-actions">
+        <a class="primary" id="iphone" href="/coffee/bath">🛁 打开手机泡澡搓澡端 ↗</a>
+        <a class="primary" id="iphone-pour" href="/coffee/pour" style="background:#38bdf8;border-color:#38bdf8;">☕ 打开手机倒咖啡端 ↗</a>
+        <a href="/strike/dash">📊 三端同屏联调中枢 ↗</a>
+      </div>
+    </div>
+    <div class="stage preview">
+      <canvas id="cover" width="480" height="270" aria-label="像素风夜间工位"></canvas>
+    </div>
+    <div class="setup">
+      <section>
+        <span class="eyebrow">01 / IPHONE TOUCH &amp; BATH</span>
+        <h2>📱 苹果触控：推浴缸 · 调水温 · 海绵搓澡</h2>
+        <p id="bath-address"></p>
+        <p>小人甩泥罢工弄脏后，在手机端向上推入木桶浴缸、旋转水龙头旋钮调节水温（过烫变红龙虾跳出水面），再用清洁海绵擦为电脑背向桌宠擦除泥斑（搓头会猛扭头弹出大黑问号❓）！</p>
+        <a href="/coffee/bath">进入手机泡澡与搓澡端 ↗</a>
+      </section>
+      <section>
+        <span class="eyebrow">02 / 3D HOLOGRAM PYRAMID</span>
+        <h2>🔮 手机 3D 全息：挖土罢工 &amp; 木桶泡澡</h2>
+        <p>承接跨屏 900ms 变装走出、高速挥铲残影、3 种随机彩蛋、愤怒 5 阶段演化、4.5 倍景深迎面甩泥、以及彩色泡沫小黄鸭木桶泡澡。</p>
+        <a id="holo-strike-link" href="/coffee/holo?mode=strike&faces=4">打开四面全息挖土/泡澡 ↗</a>
+        <p id="holo-address"></p>
+      </section>
+      <section>
+        <span class="eyebrow">03 / WORKSTATION &amp; COFFEE</span>
+        <h2>💻 电脑桌宠工位 &amp; 跨屏倒咖啡</h2>
+        <p id="iphone-address"></p>
+        <p>保留完整跨屏倒咖啡联动，支持手指直接触控拖拽倾斜或陀螺仪倒咖啡，满杯 80% 小人走来接杯说 Thanks！</p>
+        <a href="/coffee/pour">打开倒咖啡页 ↗</a> · <a href="/coffee/desk">在浏览器预览工位 ↗</a>
+      </section>
+    </div>
+  </main>
+
+  <main id="scene" hidden>
+    <!-- iPhone 顶层悬浮状态栏 (支持一键切换 ☕倒咖啡 ⇄ 🛁泡澡搓澡) -->
+    <div class="pour-top-bar" id="pour-bar" hidden>
+      <div class="pour-pill" id="pour-status">☕ 咖啡壶已就绪</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="mode-switch-pill" id="touch-mode-switch" type="button">🛁 切到泡澡搓澡</button>
+        <button class="gear-toggle" id="gear-btn" aria-label="调试与设置">⚙️</button>
+      </div>
+    </div>
+
+    <!-- 满杯或状态达成悬浮提示 -->
+    <div class="pour-toast" id="pour-toast" hidden></div>
+
+    <div class="scene-title">
+      <div>
+        <p class="eyebrow" id="scene-kicker"></p>
+        <h1 id="scene-name"></h1>
+      </div>
+      <output id="amount"></output>
+    </div>
+
+    <div class="stage" id="stage">
+      <canvas id="screen" aria-label="跨屏动画舞台"></canvas>
+    </div>
+
+    <!-- ====================================================================
+         iPhone 触控端专属：全息泡澡与电脑桌宠搓澡三步交互层 (#bath-touch-layer)
+         ==================================================================== -->
+    <div class="bath-touch-layer" id="bath-touch-layer" hidden>
+      <!-- 顶部步骤导航条 -->
+      <div class="bath-steps-nav">
+        <button type="button" class="bath-step-tab active" data-step="push" id="tab-step-push">① 推入浴缸</button>
+        <button type="button" class="bath-step-tab" data-step="knob" id="tab-step-knob">② 旋钮放水调温</button>
+        <button type="button" class="bath-step-tab" data-step="scrub" id="tab-step-scrub">③ 清洁海绵搓澡</button>
+        <button type="button" class="bath-step-tab" id="btn-back-office-top" style="background:#334155;color:#fde047;">🏠 回工位</button>
+      </div>
+
+      <!-- 第一步：手指向上推入浴缸到全息盒子 -->
+      <div class="bath-step-panel" id="panel-step-push">
+        <div class="bath-card-header">
+          <span class="bath-badge">STEP 1 · 手势跨屏投送</span>
+          <h2>向上滑动，把温水木桶浴缸推进全息盒！</h2>
+          <p id="push-sub-hint">小人甩泥罢工弄脏啦！按住下方像素木桶浴缸，用力向上一滑推入全息投影中心。</p>
+        </div>
+        <div class="tub-push-zone" id="tub-push-zone">
+          <div class="push-arrows">
+            <span>▲</span><span>▲</span><span>向上用力推屏入场</span><span>▲</span><span>▲</span>
+          </div>
+          <canvas id="tub-push-canvas" width="320" height="240"></canvas>
+        </div>
+        <div class="bath-quick-row">
+          <button type="button" class="bath-primary-btn" id="btn-quick-push">🚀 向上推入浴缸 (或直接手势上滑)</button>
+        </div>
+      </div>
+
+      <!-- 第二步：旋转水龙头旋钮放水与调节水温（冷/温/烫） -->
+      <div class="bath-step-panel" id="panel-step-knob" hidden>
+        <div class="bath-card-header">
+          <span class="bath-badge">STEP 2 · 旋钮放水与水温控制</span>
+          <h2 id="knob-title">旋转水龙头旋钮 · 控制彩色泡泡与水温</h2>
+          <p id="knob-reaction-text">😌 当前水温 42°C (温水舒适)：全息小人正眯着眼享受泡泡浴，黄色橡皮小鸭子在水面晃悠～</p>
+        </div>
+
+        <div class="knob-interactive-area">
+          <!-- 左侧温度计与泡泡计 -->
+          <div class="thermo-card">
+            <div class="thermo-label">🌡️ 实时水温</div>
+            <div class="thermo-val" id="thermo-val-text">42°C 温暖</div>
+            <div class="thermo-bar-wrap">
+              <div class="thermo-bar-fill" id="thermo-bar-fill" style="height:45%;"></div>
+            </div>
+            <div class="thermo-scale">
+              <span style="color:#ef4444;">🔥 烫 (&gt;72°)</span>
+              <span style="color:#4ade80;">🛁 温 (35~68°)</span>
+              <span style="color:#38bdf8;">❄️ 冷 (&lt;30°)</span>
+            </div>
+          </div>
+
+          <!-- 中央可旋转水龙头旋钮 Canvas -->
+          <div class="faucet-knob-box">
+            <canvas id="faucet-knob-canvas" width="210" height="210"></canvas>
+            <div class="knob-hint">👆 手指绕圈旋转旋钮调温放水</div>
+          </div>
+        </div>
+
+        <div class="knob-sliders-box">
+          <label class="BathSliderRow">
+            <span>🌡️ 水温调节 (拧到过烫变红龙虾跳出水面)</span>
+            <input type="range" id="bath-temp-slider" min="18" max="92" value="42">
+          </label>
+          <label class="BathSliderRow">
+            <span>🫧 彩色肥皂泡泡浓度</span>
+            <input type="range" id="bath-foam-slider" min="25" max="100" value="75">
+          </label>
+        </div>
+
+        <div class="bath-preset-btns">
+          <button type="button" class="preset-btn cold" data-temp="24">❄️ 偏冷 24°C</button>
+          <button type="button" class="preset-btn warm" data-temp="42">🛁 舒服温水 42°C</button>
+          <button type="button" class="preset-btn hot" data-temp="86">🦞 拧到过烫 86°C (龙虾跳!)</button>
+        </div>
+
+        <div class="bath-quick-row">
+          <button type="button" class="bath-primary-btn green" id="btn-go-scrub">🧽 泡好啦！走回电脑桌宠搓澡去污 ➔</button>
+        </div>
+      </div>
+
+      <!-- 第三步：变身为粗糙的黄色/绿色清洁海绵擦（搓澡巾），滑动为电脑桌宠搓澡 -->
+      <div class="bath-step-panel" id="panel-step-scrub" hidden>
+        <div class="bath-card-header">
+          <span class="bath-badge">STEP 3 · 玩偶去污保洁海绵擦</span>
+          <h2 id="scrub-title">滑动海绵擦为电脑桌宠去泥污 (<span id="scrub-pct-text">0%</span>)</h2>
+          <p id="scrub-reaction-text">👉 在【后背去污区】左右滑动：小人舒服眯眼哼哼，冒雪白泡沫；若滑到上方【头部禁区】，小人会瞬间僵住猛扭头弹出大黑问号【❓】！</p>
+        </div>
+
+        <div class="sponge-pad-wrap" id="sponge-pad-wrap">
+          <canvas id="sponge-pad-canvas" width="340" height="290"></canvas>
+        </div>
+
+        <div class="bath-preset-btns">
+          <button type="button" class="preset-btn warm" id="btn-sim-scrub-back">🧽 舒服搓后背 (+20%)</button>
+          <button type="button" class="preset-btn hot" id="btn-sim-scrub-head">❓ 故意搓到头 (扭头弹黑问号!)</button>
+          <button type="button" class="preset-btn cold" id="btn-sim-scrub-finish">✨ 一键洗净冒金星 (100%)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 普通控制区 (全息端与工位端) -->
+    <div class="controls" id="controls">
+      <button class="primary" id="arm">开启声音</button>
+      <button id="layout" hidden>切到四面</button>
+      <button id="flip" hidden>反转入口朝向</button>
+      <button id="mode-toggle" hidden>切到挖土</button>
+      <button id="return-office-btn" style="background:#1e293b;border-color:#475569;color:#fde047;">🏠 回到工位</button>
+      <button id="reset">重来</button>
+    </div>
+
+    <p class="note" id="note" aria-live="polite"></p>
+
+    <!-- iPhone 抽屉式调试面板 -->
+    <div class="pour-panel" id="pour-drawer">
+      <div class="pour-panel-row">
+        <strong>咖啡壶操控与倾斜校准</strong>
+        <button id="close-drawer" style="min-height:32px;padding:4px 10px;font-size:0.8rem;">收起面板 ✕</button>
+      </div>
+      <div class="pour-panel-row">
+        <button class="primary" id="arm-tilt">启用真机倾斜</button>
+        <label id="tilt-control">滑条倾倒 <input id="tilt" type="range" min="0" max="100" value="0" aria-label="咖啡壶倾斜角度"></label>
+        <button id="reset-pour">重新倒一杯</button>
+      </div>
+      <p class="note" id="pour-note" style="margin:0;font-size:0.8rem;"></p>
+      <details class="tilt-setup" id="pour-setup">
+        <summary>提示：也可直接在咖啡壶画面上按住向左滑动倾倒（无需证书）</summary>
+        <div class="setup-buttons">
+          <a class="setup-btn" id="profile-link" href="/coffee/ios-profile.mobileconfig">① 下载本机描述文件 (真机陀螺仪可选) ⬇</a>
+          <a class="setup-btn dark tilt-url" href="/coffee/pour">④ 打开 HTTPS 倾斜入口 ↗</a>
+        </div>
+        <p>直接在屏幕上向左拖动手指即可顺畅倒咖啡！若需使用 iOS 硬件陀螺仪，可按上方步骤安装证书后开启。</p>
+      </details>
+    </div>
+  </main>
+</body>
+</html>

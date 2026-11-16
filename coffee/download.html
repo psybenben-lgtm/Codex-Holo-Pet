@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>全息伴侣 · 手机端下载与安装中心</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#090d16">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at 50% 20%, #1e1b4b, #090d16 80%);
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 48px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(249, 115, 22, 0.15);
+      border: 1px solid rgba(249, 115, 22, 0.35);
+      border-radius: 999px;
+      font-size: 13px;
+      color: #fed7aa;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #ffffff 40%, #cbd5e1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #94a3b8;
+    }
+    .container {
+      width: 100%;
+      max-width: 560px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 22px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+    .card.highlight {
+      border-color: rgba(249, 115, 22, 0.5);
+      box-shadow: 0 0 24px rgba(234, 88, 12, 0.2);
+    }
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .card-desc {
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+    }
+    .btn-android {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #ffffff;
+      box-shadow: 0 4px 16px rgba(34, 197, 94, 0.35);
+    }
+    .btn-android:active {
+      transform: scale(0.98);
+      background: #15803d;
+    }
+    .btn-ios {
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      color: #ffffff;
+      box-shadow: 0 4px 16px rgba(2, 132, 199, 0.35);
+    }
+    .btn-ios:active {
+      transform: scale(0.98);
+      background: #075985;
+    }
+    .btn-sub {
+      background: rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      margin-top: 10px;
+    }
+    .btn-sub:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 14px 0 16px;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 13px;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #38bdf8;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+      margin-top: 2px;
+    }
+    .feature-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .tag {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #cbd5e1;
+    }
+    .qr-section {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding-top: 8px;
+    }
+    .qr-box {
+      width: 140px;
+      height: 140px;
+      background: #ffffff;
+      padding: 8px;
+      border-radius: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .qr-box img {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .qr-tip {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    .footer {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 12px;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo-badge">🌟 便签毛球 · 6 大职场小剧场全息显化</div>
+    <h1>全息伴侣手机安装中心</h1>
+    <p class="subtitle">12 帧连续高清动画 · 电脑语音嘴替同步 · 3D 全息金字塔折射</p>
+  </div>
+
+  <div class="container">
+    <!-- 安卓客户端下载卡片 -->
+    <div id="androidCard" class="card">
+      <div class="card-title">
+        <span>🤖</span>
+        <span>安卓手机（Android 原生安装包）</span>
+      </div>
+      <p class="card-desc">
+        独立原生 App（APK），内置全部 72 张连续动画高清序列帧与 8-Bit 独立游戏音效。离线秒开，无需占用局域网加载带宽，真机运行丝滑无卡顿。
+      </p>
+      <div class="feature-tags">
+        <span class="tag">📦 大小 8.3 MB</span>
+        <span class="tag">⚡ 零网络依赖本地帧</span>
+        <span class="tag">🔕 沉浸式真机全屏</span>
+        <span class="tag">🧭 重力与倾斜陀螺仪</span>
+      </div>
+      <a href="/HoloCompanion.apk" download="HoloCompanion.apk" class="btn btn-android">
+        <span>📥</span>
+        <span>立即下载安卓安装包 (8.3 MB)</span>
+      </a>
+    </div>
+
+    <!-- 苹果 iOS 添加到桌面指引卡片 -->
+    <div id="iosCard" class="card">
+      <div class="card-title">
+        <span>🍎</span>
+        <span>苹果手机（iPhone / iPad 免安装直达）</span>
+      </div>
+      <p class="card-desc">
+        由于 iOS 系统的沙盒保护机制，您无需也不可安装常规 APK。苹果 Safari 支持直接将全息伴侣<strong>【添加到主屏幕】</strong>，秒速生成无浏览器导航条的<strong>独立全屏桌面 App</strong>！
+      </p>
+      
+      <div class="steps">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div>点击下方<strong>【打开全息伴侣】</strong>在 Safari 中打开主页面。</div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div>轻触屏幕底部的<strong>【分享】图标</strong>（方框带向上箭头 <span style="font-size:16px;">⎋</span>）。</div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">3</div>
+          <div>在菜单中向上轻滑，点击<strong>【添加到主屏幕】</strong>并点右上角【添加】。</div>
+        </div>
+      </div>
+
+      <a href="/holo" class="btn btn-ios">
+        <span>🚀</span>
+        <span>直接进入全息伴侣 (iPhone 专属)</span>
+      </a>
+      <a href="/coffee/pour" class="btn btn-sub">
+        <span>☕</span>
+        <span>进入倾斜倒咖啡体感主控</span>
+      </a>
+    </div>
+
+    <!-- 电脑/跨设备扫码下载区 -->
+    <div class="card">
+      <div class="card-title">
+        <span>📲</span>
+        <span>手机快速扫码</span>
+      </div>
+      <div class="qr-section">
+        <div class="qr-box">
+          <img src="/qr_download.png" alt="扫码下载">
+        </div>
+        <p class="qr-tip">用手机相机或微信/浏览器扫一扫，手机直接打开本下载页</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    全息伴侣 HoloCompanion v2.0 · 局域网主机: <span id="lanHostText">正在获取局域网地址...</span>
+  </div>
+
+  <script>
+    // 自动探测系统并高亮合适卡片
+    const ua = navigator.userAgent || navigator.vendor || window.opera;
+    const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+    const isAndroid = /android/i.test(ua);
+
+    if (isIOS) {
+      document.getElementById('iosCard').classList.add('highlight');
+    } else if (isAndroid) {
+      document.getElementById('androidCard').classList.add('highlight');
+    }
+
+    if (window.location && window.location.host) {
+      document.getElementById('lanHostText').textContent = window.location.host;
+    }
+    fetch('/coffee/lan').then(r => r.json()).then(({ ip, http_port }) => {
+      if (ip && http_port) {
+        document.getElementById('lanHostText').textContent = `${ip}:${http_port}`;
+      }
+    }).catch(() => {});
+  </script>
+</body>
+</html>

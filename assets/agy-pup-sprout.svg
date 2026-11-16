@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<g stroke-linecap="round" stroke-linejoin="round">
+  <!-- 头顶长出的两片生机盎然大叶子（长草梗） -->
+  <path d="M128 82v-24" fill="none" stroke="#22c55e" stroke-width="6"/>
+  <!-- 左叶子 -->
+  <path d="M128 58q-28-18-42 6 22 18 42-6z" fill="#4ade80" stroke="#bbf7d0" stroke-width="4"/>
+  <!-- 右叶子 -->
+  <path d="M128 58q28-18 42 6-22 18-42-6z" fill="#22c55e" stroke="#86efac" stroke-width="4"/>
+  <!-- 生长微光星点 -->
+  <path d="M82 46l4 4m-4 0l4-4m86 2l4 4m-4 0l4-4" stroke="#fef08a" stroke-width="4"/>
+
+  <!-- 尾巴：安静贴地 -->
+  <path d="M72 208q-26-8-22-28 4-16 22-10" fill="none" stroke="#7dd3fc" stroke-width="10"/>
+  <!-- 身体与小脚：软萌坐姿团子 -->
+  <ellipse cx="128" cy="186" rx="66" ry="46" fill="#38bdf8" stroke="#bae6fd" stroke-width="6"/>
+  <ellipse cx="98" cy="222" rx="18" ry="12" fill="#fff" stroke="#bae6fd" stroke-width="4"/>
+  <ellipse cx="158" cy="222" rx="18" ry="12" fill="#fff" stroke="#bae6fd" stroke-width="4"/>
+  <!-- 头与耳朵 -->
+  <path d="M82 128q-18-36-4-50 18-2 32 30" fill="#a78bfa" stroke="#e0e7ff" stroke-width="5"/>
+  <path d="M174 128q18-36 4-50-18-2-32 30" fill="#a78bfa" stroke="#e0e7ff" stroke-width="5"/>
+  <circle cx="128" cy="136" r="54" fill="#f0fdf4" stroke="#dcfce7" stroke-width="6"/>
+  <!-- 表情：放空眯眼（闲得发芽） -->
+  <path d="M100 136q7-7 14 0m32 0q7-7 14 0" fill="none" stroke="#1e293b" stroke-width="5"/>
+  <ellipse cx="128" cy="148" rx="4" ry="3" fill="#1e293b"/>
+  <!-- 腮红与胸口徽记 -->
+  <ellipse cx="88" cy="148" rx="7" ry="4" fill="#f472b6" opacity="0.8"/>
+  <ellipse cx="168" cy="148" rx="7" ry="4" fill="#f472b6" opacity="0.8"/>
+  <circle cx="128" cy="184" r="8" fill="#38bdf8" stroke="#ffffff" stroke-width="3"/>
+</g>
+</svg>

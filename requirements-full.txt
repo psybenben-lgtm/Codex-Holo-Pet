@@ -1,0 +1,8 @@
+# 包含全部可选扩展：本地摄像头 21 关节点识别 + 局域网 HTTPS 陀螺仪证书 + 可选离线语音触发
+-r requirements.txt
+opencv-python-headless>=4.10
+mediapipe==0.10.32
+numpy>=1.26,<2.3
+cryptography>=41.0.0
+sounddevice>=0.5,<0.6
+vosk==0.3.45

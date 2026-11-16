@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Codex 全息微型羽毛球发球机 · 手机 A 投影端</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      background: #000000;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+      width: 100vw;
+      height: 100dvh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+    .hud-top {
+      position: fixed;
+      top: env(safe-area-inset-top, 10px);
+      left: 12px;
+      right: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 30;
+      transition: opacity 0.3s ease;
+    }
+    body.clean-projection .hud-top,
+    body.clean-projection .hud-bottom {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .status-pill {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #38bdf8;
+    }
+    .status-pill.offline {
+      border-color: #ef4444;
+      color: #f87171;
+      background: rgba(69, 10, 10, 0.85);
+    }
+    .hud-bottom {
+      position: fixed;
+      bottom: env(safe-area-inset-bottom, 14px);
+      left: 12px;
+      right: 12px;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      z-index: 30;
+      transition: opacity 0.3s ease;
+    }
+    .btn {
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      color: #f8fafc;
+      padding: 8px 13px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn.primary {
+      background: #0284c7;
+      border-color: #38bdf8;
+    }
+    html:fullscreen,
+    body:fullscreen,
+    ::backdrop {
+      background: #000000;
+    }
+    canvas#holoCanvas {
+      width: 100vmin;
+      height: 100vmin;
+      max-width: 100vw;
+      max-height: 100dvh;
+      image-rendering: pixelated;
+    }
+    .clean-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #cbd5e1;
+      font-size: 12px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      z-index: 40;
+    }
+    .clean-toast.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="hud-top">
+    <div class="status-pill" id="connPill">○ 正在连接电脑</div>
+    <div class="status-pill" id="scenePill">待机</div>
+  </div>
+
+  <canvas id="holoCanvas" width="720" height="720"></canvas>
+  <div class="clean-toast" id="cleanToast">已进入全屏清屏模式 · 双击屏幕或按 Esc 退出</div>
+
+  <div class="hud-bottom">
+    <button class="btn primary" id="btnFaces">切到单面大视图</button>
+    <button class="btn" id="btnMirror">镜像翻转</button>
+    <button class="btn" id="btnDir">手机在电脑右侧</button>
+    <button class="btn primary" id="btnClean">⛶ 全屏清屏模式</button>
+  </div>
+
+  <script src="/coffee/badminton_holo.js?v=linked3"></script>
+</body>
+</html>
