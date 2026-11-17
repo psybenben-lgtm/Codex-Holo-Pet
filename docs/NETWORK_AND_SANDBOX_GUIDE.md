@@ -2,6 +2,16 @@
 
 ![三屏联动架构图](./diagrams/multi_screen_architecture.svg)
 
+## 零、给其他用户与 AI Agent 的自动配置说明
+1. **会按每台电脑自己的局域网地址自动配置吗？**
+   **会。** `coffee_server.py` 监听 `0.0.0.0:29765`（本机全部网卡）；工作台、向导页 (`/guide`)、搓澡面板 (`/strike/dash`) 和羽毛球导演台 (`/badminton/director`) 都会在打开时自动请求 `/coffee/lan`，根据当前电脑的 `ipconfig` 动态生成带正确静区（`border=4`）的二维码与访问链接，无任何写死 IP。
+2. **如果用户的 AI 助手正在协助排查「手机扫码进不去」，请按以下 API 与命令执行**：
+   - 检查本机识别出的地址与防火墙状态：`curl.exe --noproxy "*" http://127.0.0.1:29765/coffee/lan`；
+   - 若 `ips` 首项误选成虚拟机/VPN 地址，查看 `ipconfig` 的真实 WLAN IPv4 后写入：`POST http://127.0.0.1:29765/coffee/lan`（Body: `{"ip":"<用户WLAN_IP>"}`）；
+   - 注意：**同机调试时 `tcp_reachable=true` 仅代表本机端口已监听**，无法代替外机绕过 Windows 入站防火墙；若 `firewall_rule_ok==false` 且手机超时，以管理员运行 `netsh advfirewall firewall add rule name="Codex-Holo-Pet-TCP-29765" dir=in action=allow protocol=TCP localport=29765` 或用手机热点。
+
+---
+
 ## 一、多手机连接同一个 Wi-Fi 排障清单
 
 | 常见阻碍 | 原因分析 | 一键解决办法 |

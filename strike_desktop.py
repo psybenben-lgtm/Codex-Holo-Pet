@@ -5,13 +5,19 @@ from ctypes import wintypes
 import json
 import logging
 import math
+from pathlib import Path
 import random
+import sys
 import threading
 import time
 import tkinter as tk
 from urllib.request import ProxyHandler, Request, build_opener
 import webbrowser
 import winsound
+
+_RUNTIME_DIR = Path(__file__).resolve().parent / '.rally-runtime'
+if _RUNTIME_DIR.is_dir() and str(_RUNTIME_DIR) not in sys.path:
+    sys.path.insert(0, str(_RUNTIME_DIR))
 
 from PIL import Image, ImageDraw, ImageTk
 
@@ -373,6 +379,51 @@ def render_office(t, state, now):
             step_bob = int(step_t * 9) % 4 - 2
             draw_codex(draw, round(x), 85, step_t, 'walk', False)
             draw_Carried_shovel(draw, round(x), 85, step_bob, 1)
+        else:
+            draw_outlined_text(draw, 84, 24, 'DIG!', fill='#fde047', outline='#080909')
+    elif phase in ('WORKING', 'TIRED', 'RESTING'):
+        # 全息盒正在挖土/累趴/喘气：电脑工位空座 + 漂浮挖土提示与飞溅土粒，明确表示小人在全息端忙碌！
+        badge = 'REST...' if phase == 'RESTING' else ('TIRED!' if phase == 'TIRED' else 'DIG!')
+        badge_col = '#93c5fd' if phase == 'RESTING' else ('#fb923c' if phase == 'TIRED' else '#fde047')
+        bob = round(math.sin(t * 7.0) * 1.8)
+        draw_outlined_text(draw, 86, 22 + bob, badge, fill=badge_col, outline='#080909')
+        for i in range(4):
+            px = 148 - int((t * 36 + i * 11) % 34)
+            py = 68 - int(abs(math.sin(t * 8 + i)) * 18)
+            draw.rectangle((px, py, px + 3, py + 3), fill='#8f5834' if i % 2 == 0 else '#fde047')
+    elif phase in ('ANGRY', 'THROWING', 'STRIKE'):
+        shake = round(math.sin(t * 38.0) * 2.0)
+        msg = 'MUD!!' if phase == 'THROWING' else ('SPLAT!' if phase == 'STRIKE' else 'ANGRY!')
+        draw_outlined_text(draw, 80 + shake, 22, msg, fill='#f87171', outline='#080909')
+        # 右侧红温叹号
+        draw.rectangle((146 + shake, 34, 151 + shake, 48), fill='#ef4444', outline='#080909')
+        draw.rectangle((146 + shake, 51, 151 + shake, 56), fill='#ef4444', outline='#080909')
+    elif phase in ('BATH_ENTER', 'BATH_SOAK'):
+        bath = state.get('bath') or {}
+        elapsed = max(0, now - state.get('since', now))
+        if phase == 'BATH_ENTER' and elapsed < 520:
+            # 推入浴缸瞬间：小人高兴地抱起橡皮小黄鸭朝右侧全息浴缸快步跑去！
+            p = ease(elapsed / 520.0)
+            x = round(41 + (WIDTH - 12 - 41) * p)
+            draw_codex(draw, x, 85, t * 1.4, 'walk', False)
+            # 怀里可爱黄色橡皮小鸭
+            draw.rectangle((x + 11, 56, x + 18, 62), fill='#facc15', outline='#080909')
+            draw.rectangle((x + 13, 52, x + 17, 56), fill='#fde047')
+            draw.rectangle((x + 17, 53, x + 20, 55), fill='#f97316')
+        else:
+            # 全息端泡澡中：电脑桌边冒起彩色肥皂泡泡，过烫(>=72°C)时桌面同步弹红温龙虾警报！
+            is_hot = bool(bath.get('hot_jump')) or float(bath.get('temp', 42.0)) >= 72.0
+            for i in range(6):
+                bx = 104 + (i % 3) * 18 + round(math.sin(t * 4.5 + i) * 4)
+                by = 76 - int((t * 28 + i * 13) % 52)
+                br = 3 + (i % 2)
+                col = ('#fca5a5', '#fdba74', '#fef08a')[i % 3] if is_hot else ('#ffffff', '#bae6fd', '#fbcfe8')[i % 3]
+                draw.ellipse((bx - br, by - br, bx + br, by + br), fill=col, outline='#7dd3fc' if not is_hot else '#ef4444')
+            if is_hot:
+                jump = abs(round(math.sin(t * 16.0) * 5.0))
+                draw_outlined_text(draw, 84, 22 - jump, f"HOT {int(bath.get('temp', 86))}C!", fill='#ff4d6d', outline='#080909')
+            else:
+                draw_outlined_text(draw, 88, 22, f"BATH {int(bath.get('temp', 42))}C", fill='#7dd3fc', outline='#080909')
     elif phase in ('RETURNING', 'BATH_RETURN'):
         cross = state.get('cross') or {}
         if cross and now >= cross.get('start', 0):
@@ -410,6 +461,8 @@ class KeyboardPulse:
         self.stopped.set()
         if self.thread_id is not None:
             ctypes.windll.user32.PostThreadMessageW(self.thread_id, 0x12, 0, 0)
+        if self.thread.is_alive() and threading.current_thread() is not self.thread:
+            self.thread.join(timeout=0.35)
 
     def _listen(self):
         user = ctypes.WinDLL('user32', use_last_error=True)
@@ -739,6 +792,7 @@ class StrikeDesktopApp(Pet):
         self.sigh_id = None
         self.question_id = None
         self.clean_done_id = None
+        self.hot_jump_id = None
         self.last_scrub_sfx = 0
         super().__init__(lambda: False)
         self.overlay = MudOverlay(self.root)
@@ -746,17 +800,20 @@ class StrikeDesktopApp(Pet):
         # 丰富完善的右键快捷控制菜单（新增【回到工位】与全流程测试项）
         self.menu.add_separator()
         self.menu.add_command(label='🏠 回到工位 (收起铲子回办公室)', command=self.return_to_office)
+        self.menu.add_command(label='⛏️ 立即出门挖土 (挖矿)', command=lambda: self._async_post('input', {'hits': 12, 'manual_burst': True}))
         self.menu.add_command(label='💥 立即演练暴怒跨屏甩泥', command=lambda: self._async_post('trigger', {}))
         self.menu.add_command(label='🛁 推入浴缸泡澡 -> 准备搓澡', command=lambda: self._async_post('bath_push', {}))
+        self.menu.add_command(label='🦞 演练 86°C 过烫变红龙虾跳出', command=lambda: self._async_post('bath_knob', {'temp': 86}))
         self.menu.add_command(label='🧽 开始电脑桌宠背向搓澡', command=lambda: self._async_post('scrub_start', {'immediate': True}))
         self.menu.add_command(label='❓ 演练搓错头部弹出黑问号', command=lambda: self._async_post('scrub_move', {'zone': 'head', 'y': 0.2}))
         self.menu.add_command(label='📊 打开三端同屏联调控制台', command=lambda: webbrowser.open(HOST + '/strike/dash'))
         self.menu.add_command(label='🔄 重置挖土与清除泥巴', command=self.reset_strike)
-        self.menu.entryconfigure('退出 Codex 桌宠', command=self.close)
+        self.menu.entryconfigure('仅隐藏桌宠 (保留网页)', command=self.close)
+        self.menu.entryconfigure('退出 Codex 桌宠', command=self.exit_all)
 
         # 双击桌宠快速回到屏幕右下角工位
         self.canvas.bind('<Double-Button-1>', lambda _e: self.reset_to_corner())
-        self.root.protocol('WM_DELETE_WINDOW', self.close)
+        self.root.protocol('WM_DELETE_WINDOW', self.exit_all)
         self.sender = threading.Thread(target=self._send_pulses, daemon=True)
         self.sender.start()
         threading.Thread(target=self._listen_strike, daemon=True).start()
@@ -795,6 +852,8 @@ class StrikeDesktopApp(Pet):
             self.strike = {}
             self.overlay.hide()
             self.wake_sender.set()
+            if enabled:
+                threading.Thread(target=self._fetch_strike_snapshot, daemon=True).start()
         if enabled and self.keyboard_capture and self.keyboard is None:
             self.keyboard = KeyboardPulse(self._hit)
         elif (not enabled or not self.keyboard_capture) and self.keyboard is not None:
@@ -802,6 +861,15 @@ class StrikeDesktopApp(Pet):
             self.keyboard = None
         self._refresh_dock_mode('strike' if enabled else 'coffee')
         self.show_at_corner()
+
+    def _fetch_strike_snapshot(self):
+        try:
+            with HTTP.open(HOST + '/api/strike/status', timeout=0.8) as r:
+                snap = json.load(r)
+            if isinstance(snap, dict) and self.enabled:
+                self.strike = snap
+        except (OSError, ValueError):
+            pass
 
     def toggle_strike(self):
         self.set_mode('coffee' if self.enabled else 'strike')
@@ -847,6 +915,11 @@ class StrikeDesktopApp(Pet):
         if self.closed.is_set():
             return
         self.closed.set()
+        try:
+            req = Request(HOST + '/api/pet/heartbeat', b'{"closing":true}', {'Content-Type': 'application/json'})
+            HTTP.open(req, timeout=0.45).close()
+        except (OSError, ValueError):
+            pass
         if self.keyboard:
             self.keyboard.stop()
             self.keyboard = None
@@ -858,7 +931,7 @@ class StrikeDesktopApp(Pet):
             pass
 
     def _hit(self):
-        if self.enabled and self.work != 'working':
+        if self.enabled and self.keyboard_capture:
             self.pending_hits.append(time.monotonic())
             self.wake_sender.set()
 
@@ -922,7 +995,7 @@ class StrikeDesktopApp(Pet):
             return super().tick()
         now = wall_ms() + self.offset_strike
         state = self.strike or {'state': 'OFFICE_WORK' if self.work == 'working' else 'OFFICE_IDLE'}
-        if self.work == 'working' and state.get('state') not in ('THROWING', 'SCRUBBING', 'CLEAN_DONE'):
+        if self.work == 'working' and state.get('state') in ('OFFICE_IDLE', 'OFFICE_WORK'):
             state = {**state, 'state': 'OFFICE_WORK'}
 
         # 1. 触发挖土离场叹气音效
@@ -933,8 +1006,16 @@ class StrikeDesktopApp(Pet):
                 if now < state.get('since', now) + 250:
                     play_sfx('relax_sigh.wav')
 
-        # 2. 搓澡阶段微表情音效（搓头弹出大黑问号音效 & 搓后背泡泡音效）
+        # 2. 搓澡阶段微表情音效（过烫跳出、搓头弹出大黑问号、搓后背泡泡音效）
         bath = state.get('bath') or {}
+        if state.get('state') in ('BATH_ENTER', 'BATH_SOAK') and bath.get('hot_jump'):
+            hj_id = (state.get('epoch'), round(float(bath.get('temp', 86))))
+            if hj_id != self.hot_jump_id:
+                self.hot_jump_id = hj_id
+                play_sfx('hot_jump.wav')
+        elif not bath.get('hot_jump'):
+            self.hot_jump_id = None
+
         if state.get('state') == 'SCRUBBING':
             q_serial = bath.get('question_serial', 0)
             if q_serial and (state.get('epoch'), q_serial) != self.question_id:

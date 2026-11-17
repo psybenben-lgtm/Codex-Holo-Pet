@@ -8,6 +8,7 @@
     ip: '',
     port: 29765,
     ips: [],
+    lanLoaded: false,
     info: null,
   };
 
@@ -27,8 +28,32 @@
     });
   }
 
+  function updateLanDiag(lan) {
+    const line = $('lanDiagLine');
+    if (!line || !lan) return;
+    if (lan.firewall_warning) {
+      line.textContent = `⚠️ ${lan.firewall_warning}`;
+      line.style.color = '#fbbf24';
+    } else if (lan.ip === '127.0.0.1') {
+      line.textContent = '⚠️ 当前仅检测到本机回环 127.0.0.1，请连路由器 Wi-Fi 或手机热点后点「🔄 刷新网卡 IP」';
+      line.style.color = '#fbbf24';
+    } else if (lan.tcp_reachable === false) {
+      line.textContent = `⚠️ 已选中 ${lan.ip}:${state.port}，但本机探测端口不可达；请点击「🔄 刷新网卡 IP」或改连手机热点`;
+      line.style.color = '#f87171';
+    } else {
+      line.textContent = `✅ 当前二维码已按你电脑自动配置为 http://${lan.ip}:${state.port}（同 Wi-Fi 下请用手机系统相机扫码访问）`;
+      line.style.color = '#4ade80';
+    }
+  }
+
   function renderQRs() {
     const ip = $('ipSelect').value || state.ip || location.hostname || '127.0.0.1';
+    state.ip = ip;
+    const grid = $('qrGrid');
+    if (!state.lanLoaded && (ip === '127.0.0.1' || ip === 'localhost')) {
+      grid.innerHTML = '<div style="grid-column:1/-1;padding:18px;border-radius:12px;background:#090f1d;border:1px dashed #334155;text-align:center;color:#94a3b8;font-size:13px;">⏳ 正在自动识别当前电脑真实局域网 Wi-Fi IP 并生成可扫码二维码…</div>';
+      return;
+    }
     const base = `http://${ip}:${state.port}`;
     const f = state.faces;
     let items = [];
@@ -50,9 +75,9 @@
         { title: '📱 手机 B · 辅助导演遥控台（可选）', desc: '手机遥控开打、切拍、连发七球', url: `${base}/badminton/ctrl` },
       ];
     }
-    const grid = $('qrGrid');
+    const bust = Date.now();
     grid.innerHTML = items.map(it => {
-      const qrSrc = `/api/qrcode?text=${encodeURIComponent(it.url)}`;
+      const qrSrc = `/api/qrcode?text=${encodeURIComponent(it.url)}&_=${bust}`;
       return `
         <div class="qr-card">
           <div style="font-size:13.5px;font-weight:800;color:#f8fafc;">${it.title}</div>
@@ -68,16 +93,20 @@
     }).join('');
   }
 
+  let pourRunId = 0;
+
   function renderStage() {
     const f = state.faces;
     const grid = $('stageGrid');
     const bar = $('stageQuickBtns');
+    grid.querySelectorAll('iframe').forEach(fr => { try { fr.src = 'about:blank'; } catch {} });
     grid.className = state.mode === 'badminton' ? 'stage-grid two' : 'stage-grid';
 
     if (state.mode === 'coffee') {
       $('stageTitle').textContent = '☕ 跨屏倒咖啡 · 电脑端三屏实时联调舞台（无需手机也能一键倒咖啡看 Codex 喝杯说 Thanks）';
       bar.innerHTML = `
         <button class="btn gold" id="btnQuickPour">☕ 一键满杯倾倒演示（免手机）</button>
+        <button class="btn" id="btnCoffeeReturn">🏠 放杯回工位</button>
         <button class="btn" id="btnResetCoffee">🔄 重新倒一杯</button>
       `;
       grid.innerHTML = `
@@ -95,27 +124,29 @@
         </div>
       `;
       $('btnQuickPour').onclick = async () => {
-        const { round } = await api('/coffee/clock').then(() => api('/api/pet/mode'));
+        const myRun = ++pourRunId;
         const cur = await api('/coffee/reset', {});
         const r = cur.round;
         let seq = 1;
         for (const amt of [0.16, 0.34, 0.52, 0.68, 0.80]) {
+          if (myRun !== pourRunId) return;
           await api('/coffee/pour', { owner: 'carafe-pc-demo', seq: seq++, round: r, amount: amt, flow: 0.9 });
           await new Promise(res => setTimeout(res, 220));
         }
       };
-      $('btnResetCoffee').onclick = () => api('/coffee/reset', {});
+      $('btnCoffeeReturn').onclick = () => { ++pourRunId; api('/api/pet/return_office', {}); };
+      $('btnResetCoffee').onclick = () => { ++pourRunId; api('/api/pet/reset', { scope: 'coffee' }); };
     } else if (state.mode === 'strike') {
       $('stageTitle').textContent = '🛁 挖土罢工 & 全息搓澡 · 电脑端三屏联调（无需读键盘 & 无需拖拽浴缸，点按钮逐关触发）';
       bar.innerHTML = `
-        <button class="btn primary" onclick="fetch('/api/strike/input',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hits:12})})">⛏️ 模拟打字挖土</button>
-        <button class="btn red" onclick="fetch('/api/strike/trigger',{method:'POST',body:'{}'})">💥 暴怒跨屏甩泥</button>
-        <button class="btn" style="background:#0369a1;" onclick="fetch('/api/strike/bath_push',{method:'POST',body:'{}'})">🛁 推入浴缸(免拖)</button>
+        <button class="btn primary" onclick="fetch('/api/strike/input',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hits:12,manual_burst:true})})">⛏️ 立即出门挖土</button>
+        <button class="btn red" onclick="fetch('/api/strike/trigger',{method:'POST',body:'{}'})">💥 立即暴怒甩泥</button>
+        <button class="btn" style="background:#0369a1;" onclick="fetch('/api/strike/bath_push',{method:'POST',body:'{}'})">🛁 立即泡澡 (推浴缸)</button>
         <button class="btn" onclick="fetch('/api/strike/bath_knob',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({temp:86})})">🦞 86°C 过烫跳出</button>
         <button class="btn green" onclick="fetch('/api/strike/scrub_start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({immediate:true})})">🧽 开始搓澡</button>
         <button class="btn purple" onclick="fetch('/api/strike/scrub_move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({zone:'head',y:0.2})})">❓ 搓头弹问号</button>
         <button class="btn gold" onclick="fetch('/api/strike/return_office',{method:'POST',body:'{}'})">🏠 洗净回工位</button>
-        <button class="btn" onclick="fetch('/api/strike/reset',{method:'POST',body:'{}'})">🔄 重置</button>
+        <button class="btn" onclick="fetch('/api/strike/reset',{method:'POST',body:'{}'})">🔄 重来搓澡</button>
       `;
       grid.innerHTML = `
         <div class="frame-card">
@@ -135,19 +166,20 @@
       $('stageTitle').textContent = '🏸 羽毛球互动（双屏联动：已自动内置全息发球机视角，单台空白电脑不开摄像头也能直接鼠标挥拍对打）';
       bar.innerHTML = `
         <button class="btn gold" onclick="fetch('/api/badminton/live/start',{method:'POST',body:'{}'})">🏸 开始开打</button>
+        <button class="btn primary" onclick="fetch('/api/badminton/live/replay',{method:'POST',body:'{}'})">🔄 重来本局</button>
         <button class="btn primary" onclick="fetch('/api/badminton/live/swing',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({x:0.5,y:0.5,power:0.86,assisted:true,force_smash:true})})">💥 辅助挥拍扣杀</button>
         <button class="btn purple" onclick="fetch('/api/badminton/live/barrage',{method:'POST',body:'{}'})">⚡ 七球连发开挂</button>
         <button class="btn" onclick="fetch('/api/badminton/live/hand_mode',{method:'POST',body:'{}'})">🖐/🏸 切换手与球拍</button>
-        <button class="btn" onclick="fetch('/api/badminton/live/quit',{method:'POST',body:'{}'})">🏠 收拍回工位</button>
+        <button class="btn" onclick="fetch('/api/pet/return_office',{method:'POST',body:'{}'})">🏠 收拍回工位</button>
       `;
       grid.innerHTML = `
         <div class="frame-card">
           <div class="frame-head"><span>🎬 导演控制台（开关摄像头 / 鼠标控拍 / 比分调试）</span><a href="/badminton/director" target="_blank">完整导演台 ↗</a></div>
-          <div class="frame-box"><iframe src="/badminton/director"></iframe></div>
+          <div class="frame-box"><iframe src="/badminton/director?embed=1"></iframe></div>
         </div>
         <div class="frame-card">
           <div class="frame-head"><span>🔮 全息发球机端 (${f === 4 ? '四面金字塔' : '单图直看'}) · 维持自动发球在线</span><a href="/badminton/holo?faces=${f}" target="_blank">全屏打开 ↗</a></div>
-          <div class="frame-box"><iframe src="/badminton/holo?faces=${f}"></iframe></div>
+          <div class="frame-box"><iframe src="/badminton/holo?faces=${f}&embed=1"></iframe></div>
         </div>
       `;
     }
@@ -183,13 +215,35 @@
     }
     $('workBadge').textContent = info.effective_work === 'working' ? '工作中' : (info.effective_work === 'idle' ? '空闲摸鱼' : '待机');
     $('bmCtrlBadge').textContent = info.camera_deps_ready ? '摄像头/鼠标均可' : '仅需纯鼠标(免AI包)';
+
+    const banner = $('diagBanner');
+    if (banner) {
+      if (info.desktop_tkinter_ok === false) {
+        banner.style.display = 'block';
+        banner.innerHTML = '⚠️ <strong>检测到本机 Python 缺少 <code>tkinter</code> 图形库（可能是嵌入式 Python）</strong>，透明桌宠窗口无法启动！请在 PowerShell 执行：<code>winget install -e --id Python.Python.3.11 --scope user</code> 安装标准版 Python 后重装依赖。';
+      } else if (info.desktop_spawn_error) {
+        banner.style.display = 'block';
+        banner.textContent = `⚠️ ${info.desktop_spawn_error}`;
+      } else {
+        banner.style.display = 'none';
+      }
+    }
   }
 
   async function refreshStatus() {
     try {
       const info = await api('/api/pet/mode');
       applyInfo(info);
-    } catch {}
+    } catch {
+      if ($('srvPill')) {
+        $('srvPill').textContent = '○ 服务已停止';
+        $('srvPill').className = 'pill';
+      }
+      if ($('petPill')) {
+        $('petPill').textContent = '○ 桌宠已离线';
+        $('petPill').className = 'pill warn';
+      }
+    }
   }
 
   async function init() {
@@ -200,14 +254,60 @@
     // 同步首屏渲染舞台与二维码，避免等待接口时出现空白与跳动
     renderStage();
 
-    $('ipSelect').onchange = () => {
+    async function refreshLan(force = false) {
+      try {
+        const lan = force
+          ? await api('/coffee/lan', { refresh: true })
+          : await api('/coffee/lan');
+        if (lan && lan.ips?.length) {
+          state.ips = lan.ips;
+          state.ip = lan.ip || state.ips[0];
+          state.port = lan.http_port || state.port;
+          $('ipSelect').innerHTML = state.ips
+            .map((ip, i) => `<option value="${ip}"${ip === state.ip ? ' selected' : ''}>${ip}${i === 0 ? ' (推荐主 Wi-Fi)' : ''}</option>`)
+            .join('');
+          $('ipSelect').value = state.ip;
+          updateLanDiag(lan);
+        }
+      } catch {}
+      state.lanLoaded = true;
+      renderQRs();
+    }
+
+    $('ipSelect').onchange = async () => {
       state.ip = $('ipSelect').value;
+      const lan = await api('/coffee/lan', { ip: state.ip });
+      if (lan) updateLanDiag(lan);
       renderQRs();
     };
+    $('btnApplyCustomIp').onclick = async () => {
+      const custom = $('customIpInput').value.trim();
+      if (!custom) return;
+      const lan = await api('/coffee/lan', { ip: custom });
+      if (lan && lan.ip) {
+        state.ips = lan.ips || [lan.ip];
+        state.ip = lan.ip;
+        $('ipSelect').innerHTML = state.ips
+          .map((ip, i) => `<option value="${ip}"${ip === state.ip ? ' selected' : ''}>${ip}${i === 0 ? ' (推荐主 Wi-Fi)' : ''}</option>`)
+          .join('');
+        if (![...$('ipSelect').options].some(o => o.value === custom)) {
+          const opt = document.createElement('option');
+          opt.value = custom;
+          opt.textContent = `${custom} (手动)`;
+          opt.selected = true;
+          $('ipSelect').appendChild(opt);
+        }
+        $('ipSelect').value = custom;
+        updateLanDiag(lan);
+        renderQRs();
+      }
+    };
+    $('btnRefreshLan').onclick = () => refreshLan(true);
 
     document.querySelectorAll('.mode-card').forEach(btn => {
       btn.onclick = async () => {
         const m = btn.dataset.mode;
+        ++pourRunId;
         state.mode = m;
         document.querySelectorAll('.mode-card').forEach(c => c.classList.toggle('active', c.dataset.mode === m));
         renderStage();
@@ -235,6 +335,18 @@
     });
 
     $('btnWakePet').onclick = async () => applyInfo(await api('/api/pet/mode', { mode: state.mode, spawn: true }));
+    $('btnGlobalReturnOffice').onclick = async () => {
+      ++pourRunId;
+      applyInfo(await api('/api/pet/return_office', {}));
+    };
+    $('btnGlobalResetPart').onclick = async () => {
+      ++pourRunId;
+      applyInfo(await api('/api/pet/reset', { scope: state.mode, replay: false }));
+    };
+    $('btnGlobalResetAll').onclick = async () => {
+      ++pourRunId;
+      applyInfo(await api('/api/pet/reset', { scope: 'all', replay: false }));
+    };
     $('btnChatPet').onclick = async () => {
       const lines = [
         '你要给我倒咖啡吗？☕',
@@ -256,21 +368,29 @@
     $('btnOpenPrivacy').onclick = () => $('dlgPrivacy').showModal();
     $('btnOpenNetHelp').onclick = () => $('dlgNet').showModal();
 
+    // 开启唯一一条聚合 SSE 总线并通过 BroadcastChannel 广播给所有嵌入手柄视图，彻底避免浏览器 6 连接池耗尽
+    const syncBus = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('codex-holo-bus') : null;
+    const syncEs = new EventSource('/api/sync/stream');
+    syncEs.onmessage = ev => {
+      try {
+        const msg = JSON.parse(ev.data);
+        if (msg.pet) applyInfo(msg.pet);
+        syncBus?.postMessage(msg);
+      } catch {}
+    };
+    const cleanupSync = () => {
+      try { syncEs.close(); } catch {}
+      document.querySelectorAll('iframe').forEach(fr => { try { fr.src = 'about:blank'; } catch {} });
+    };
+    window.addEventListener('pagehide', cleanupSync);
+    window.addEventListener('beforeunload', cleanupSync);
+
     // 异步并行拉取局域网 IP 列表与中枢状态
     await Promise.allSettled([
-      api('/coffee/lan').then(lan => {
-        if (!lan) return;
-        state.ips = lan.ips || ['127.0.0.1'];
-        state.ip = lan.ip || state.ips[0];
-        state.port = lan.http_port || state.port;
-        $('ipSelect').innerHTML = state.ips
-          .map((ip, i) => `<option value="${ip}">${ip}${i === 0 ? ' (推荐主 Wi-Fi)' : ''}</option>`)
-          .join('');
-        renderQRs();
-      }),
+      refreshLan(false),
       refreshStatus(),
     ]);
-    setInterval(refreshStatus, 1500);
+    setInterval(refreshStatus, 2500);
   }
 
   if (document.readyState === 'loading') {

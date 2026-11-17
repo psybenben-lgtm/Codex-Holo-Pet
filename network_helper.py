@@ -14,6 +14,9 @@ from urllib.parse import quote
 import webbrowser
 
 ROOT = Path(__file__).resolve().parent
+RUNTIME = ROOT / '.rally-runtime'
+if RUNTIME.is_dir() and str(RUNTIME) not in sys.path:
+    sys.path.insert(0, str(RUNTIME))
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / 'app'))
 
@@ -29,12 +32,12 @@ if sys.platform == 'win32':
 
 
 def make_qr_png_bytes(text):
-    """生成高对比度标准 QR 二维码 PNG 字节流（依赖 qrcode + Pillow）。"""
+    """生成高对比度标准 QR 二维码 PNG 字节流（带标准静区，手机秒扫）。"""
     import qrcode
-    qr = qrcode.QRCode(version=None, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=8, border=2)
+    qr = qrcode.QRCode(version=None, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=9, border=4)
     qr.add_data(text)
     qr.make(fit=True)
-    img = qr.make_image(fill_color='#0f172a', back_color='#ffffff').convert('RGB')
+    img = qr.make_image(fill_color='#000000', back_color='#ffffff').convert('RGB')
     buf = BytesIO()
     img.save(buf, format='PNG')
     return buf.getvalue()
@@ -254,7 +257,11 @@ def build_guide_html(ips=None, http_port=None, https_port=None, inline_qr=True):
                 <select id="selIp">{ip_options}</select>
                 <input type="text" id="customIp" placeholder="或手动输入 IP (如 192.168.1.5)">
                 <button class="btn btn-cyan" style="padding:7px 12px;font-size:12.5px;" onclick="applyIp()">应用 IP</button>
+                <button class="btn btn-slate" style="padding:7px 12px;font-size:12.5px;" onclick="refreshLan()">🔄 刷新网卡</button>
             </div>
+        </div>
+        <div id="netDiagBar" style="margin:-6px 0 14px;padding:10px 14px;border-radius:10px;background:#0f172a;border:1px solid #1e293b;font-size:12.5px;color:#cbd5e1;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <span id="netDiagText">📡 请用手机连接同一 Wi-Fi（或电脑连接手机热点），扫描下方二维码；若扫码超时请确认 Windows 防火墙放行 {port} 端口。</span>
         </div>
 
         <div class="grid">
@@ -353,7 +360,7 @@ def build_guide_html(ips=None, http_port=None, https_port=None, inline_qr=True):
             img.src = `${{LOCAL_API}}/api/qrcode?text=${{encodeURIComponent(targetUrl)}}`;
         }}
 
-        function updateUrls(ip) {{
+        function updateUrls(ip, syncServer = true) {{
             const clean = (ip || '127.0.0.1').trim();
             const holo = `http://${{clean}}:${{PORT}}/badminton/holo`;
             const ctrl = `http://${{clean}}:${{PORT}}/badminton/ctrl`;
@@ -372,16 +379,50 @@ def build_guide_html(ips=None, http_port=None, https_port=None, inline_qr=True):
             setQrSrc('qrHolo', holo);
             setQrSrc('qrCtrl', ctrl);
             setQrSrc('qrBath', bath);
+            if (syncServer) {{
+                fetch(`${{LOCAL_API}}/coffee/lan`, {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ ip: clean }})
+                }}).then(r => r.ok ? r.json() : null).then(updateDiag).catch(() => {{}});
+            }}
         }}
 
-        document.getElementById('selIp').addEventListener('change', e => updateUrls(e.target.value));
+        function updateDiag(lan) {{
+            const el = document.getElementById('netDiagText');
+            if (!el || !lan) return;
+            if (lan.firewall_warning) {{
+                el.innerHTML = `⚠️ <strong>${{lan.firewall_warning}}</strong> · 可选方案：电脑连手机热点后点「🔄 刷新网卡」`;
+                el.style.color = '#fbbf24';
+            }} else if (lan.ip && lan.ip !== '127.0.0.1') {{
+                el.textContent = `✅ 本机已绑定 0.0.0.0:${{PORT}}，当前可访问局域网 IP：${{lan.ip}}（手机同一 Wi-Fi 下直接扫码即可）`;
+                el.style.color = '#4ade80';
+            }}
+        }}
+
+        function refreshLan() {{
+            fetch(`${{LOCAL_API}}/coffee/lan`, {{
+                method: 'POST',
+                headers: {{ 'Content-Type': 'application/json' }},
+                body: JSON.stringify({{ refresh: true }})
+            }}).then(r => r.ok ? r.json() : null).then(lan => {{
+                if (!lan || !lan.ips?.length) return;
+                const sel = document.getElementById('selIp');
+                sel.innerHTML = lan.ips.map((x, i) => `<option value="${{x}}"${{x === lan.ip ? ' selected' : ''}}>${{x}}${{i === 0 ? ' (推荐 Wi-Fi)' : ''}}</option>`).join('');
+                updateUrls(lan.ip, false);
+                updateDiag(lan);
+            }}).catch(() => {{}});
+        }}
+
+        document.getElementById('selIp').addEventListener('change', e => updateUrls(e.target.value, true));
         function applyIp() {{
             const custom = document.getElementById('customIp').value.trim();
             const ip = custom || document.getElementById('selIp').value;
-            updateUrls(ip);
+            updateUrls(ip, true);
         }}
 
         checkServer();
+        refreshLan();
         setInterval(checkServer, 3000);
     </script>
 </body>

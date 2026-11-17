@@ -159,12 +159,16 @@
         <span class="pill" id="codexPill">🤖 Codex 状态检查中</span>
         <button class="btn primary" id="btnChatPet">💬 戳桌宠聊天</button>
         <button class="btn gold" id="btnWakePet">🐣 拉起/切换透明桌宠</button>
+        <button class="btn" id="btnGlobalReturnOffice" style="color:#fde047;">🏠 回工位</button>
+        <button class="btn" id="btnGlobalResetPart">🔄 重来当前玩法</button>
+        <button class="btn red" id="btnGlobalResetAll">🧹 整体重来</button>
         <button class="btn" id="btnOpenHoloGuide">🔮 塑料瓶全息制法</button>
         <button class="btn" id="btnOpenPrivacy">🔒 隐私与零权限</button>
         <button class="btn" id="btnOpenNetHelp">🌐 网络/浏览器避坑</button>
         <button class="btn red" id="btnShutdown">⏻ 停止全部</button>
       </div>
     </div>
+    <div class="card" id="diagBanner" style="display:none;border-color:rgba(245,158,11,0.55);background:rgba(120,53,15,0.28);color:#fde68a;font-size:12.5px;line-height:1.55;"></div>
 
     <!-- 1. 三合一功能切换 -->
     <div class="card">
@@ -239,14 +243,21 @@
       <div class="topbar" style="margin-bottom:8px;">
         <div>
           <strong style="font-size:15px;">📱 多手机同连一个 Wi-Fi · 扫码进入各自页面</strong>
-          <p style="font-size:12px;color:var(--muted);margin-top:2px;">自动过滤 VPN/Clash/虚拟网卡；请保持电脑与手机在同一路由器下（勿连访客隔离 Wi-Fi）</p>
+          <p id="lanDiagLine" style="font-size:12px;color:var(--muted);margin-top:2px;">自动过滤 VPN/Clash/虚拟网卡；请保持电脑与手机在同一路由器或手机热点下</p>
         </div>
         <div class="pill-row">
           <select class="ip-select" id="ipSelect"></select>
+          <input type="text" id="customIpInput" placeholder="手动 IP 如 192.168.1.5" style="padding:6px 9px;border-radius:9px;border:1px solid #334155;background:#0f172a;color:#f8fafc;font-size:12px;width:150px;">
+          <button class="btn" id="btnApplyCustomIp">应用 IP</button>
+          <button class="btn primary" id="btnRefreshLan">🔄 刷新网卡 IP</button>
           <a class="btn" href="/guide" target="_blank">🧭 详细向导页 ↗</a>
         </div>
       </div>
       <div class="qr-grid" id="qrGrid"></div>
+      <div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:#090f1d;border:1px solid #1e293b;font-size:12px;line-height:1.65;color:#cbd5e1;">
+        <div><strong>✅ 跨机自动地址适配说明：</strong>本服务端监听 <code>0.0.0.0</code>，每个人打开工作台都会通过 <code>/coffee/lan</code> 自动读取<strong>你当前电脑自己的局域网 IP</strong>（自动过滤 Clash/VPN <code>198.18.*</code>、WSL/Docker 虚拟网卡）并实时重绘上方二维码，<strong>不会写死原作者地址</strong>。</div>
+        <div style="margin-top:4px;color:#94a3b8;"><strong>📌 扫码进不去 4 步自检（人类/AI 通用）：</strong>① 请用<strong>手机系统自带相机或手机浏览器</strong>扫码（<strong>微信扫一扫</strong>常拦截局域网 <code>http://</code> 地址）；② 电脑与手机必须连<strong>同一路由器 Wi-Fi</strong>，校园/公司网如开 AP 隔离请用<strong>手机开个人热点让电脑连入</strong>再点「🔄 刷新网卡 IP」；③ 若上方还是虚拟网卡 IP，手动下拉切换为 <code>192.168.*</code> 或输入 <code>ipconfig</code> 查到的 WLAN IP 点「应用 IP」；④ 若本机能开但手机超时，多为<strong>非管理员启动未放行 Windows 防火墙</strong>——让你的 AI 跑 <code>netsh advfirewall firewall add rule name="Codex-Holo-Pet-TCP-29765" dir=in action=allow protocol=TCP localport=29765</code> 或调 <code>GET /coffee/lan</code> 查看 <code>firewall_warning</code>。</div>
+      </div>
     </div>
   </div>
 

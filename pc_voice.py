@@ -1,6 +1,7 @@
 """On-demand Windows speech, owned by the visible hub and its Stop button."""
 import json
 import subprocess
+import sys
 import threading
 
 SCRIPT = r'''
@@ -17,6 +18,18 @@ lock = threading.Lock()
 process = None
 active_id = None
 canceled = set()
+
+
+def _win_hidden_kwargs():
+    if sys.platform != 'win32':
+        return {}
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= getattr(subprocess, 'STARTF_USESHOWWINDOW', 0)
+    si.wShowWindow = getattr(subprocess, 'SW_HIDE', 0)
+    return {
+        'creationflags': getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+        'startupinfo': si,
+    }
 
 def stop(job_id=None):
     global process
@@ -47,7 +60,7 @@ def speak(data):
             process.terminate()
         proc = subprocess.Popen(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', SCRIPT],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                creationflags=subprocess.CREATE_NO_WINDOW)
+                                **_win_hidden_kwargs())
         process, active_id = proc, job_id
     print('[PC voice] Speaking; use the controller Stop button to cancel.', flush=True)
     try:

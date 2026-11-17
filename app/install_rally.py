@@ -25,7 +25,24 @@ def download(url):
         return r.read()
 
 
+def check_tkinter():
+    try:
+        import tkinter  # noqa: F401
+        return True
+    except Exception:
+        print('========================================================================', flush=True)
+        print('[错误] 当前 Python 缺少 tkinter 图形库（大概率是嵌入式 Python / Embedded 版）！', flush=True)
+        print('透明桌面桌宠必须使用完整桌面版 Python（自带 tkinter）。', flush=True)
+        print('请执行以下命令安装标准 64 位 Python 3.11（或交由 AI Agent 自动执行）：', flush=True)
+        print('  winget install -e --id Python.Python.3.11 --scope user --accept-package-agreements --accept-source-agreements', flush=True)
+        print('安装完成后，请使用新 Python 重新运行：python app/install_rally.py --core', flush=True)
+        print('========================================================================', flush=True)
+        return False
+
+
 def install(core_only=False, with_voice=False):
+    if not check_tkinter():
+        raise RuntimeError('当前 Python 缺少 tkinter，请安装标准桌面版 Python 3.11')
     RUNTIME.mkdir(exist_ok=True)
     sys.path.insert(0, str(RUNTIME))
     py = [sys.executable, '-m', 'pip', '--disable-pip-version-check', 'install', '--target', str(RUNTIME)]

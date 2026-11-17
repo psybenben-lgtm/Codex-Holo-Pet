@@ -13,8 +13,8 @@ CONFIG = {
     "WORK_CYCLE_SLOW": 0.72,       # 慢速敲键 (1~2 键/秒) 从容挥铲周期
     "WORK_CYCLE_FAST": 0.24,       # 高速快打 (>5 键/秒) 急速挥铲周期
     "TIRED_CYCLE_MULTIPLIER": 1.25,
-    "FATIGUE_GAIN_PER_HIT": 0.65,
-    "FAST_FATIGUE_BONUS": 1.28,
+    "FATIGUE_GAIN_PER_HIT": 1.45,
+    "FAST_FATIGUE_BONUS": 1.65,
     "FATIGUE_RECOVERY_PER_SEC": 2.2,
     "TIRED_THRESHOLD": 32.0,
     "ANGRY_THRESHOLD": 65.0,
@@ -64,6 +64,8 @@ class StrikeEngine:
         self.lease = 0
         self.enabled = True
         self.working = False
+        self.manual_active = False
+        self._manual_dig_until = 0
         self._reset(self.wall_origin)
         self._stop = threading.Event()
         if run:
@@ -73,6 +75,8 @@ class StrikeEngine:
         return self.wall_origin + time.monotonic_ns() // 1_000_000 - self.mono_origin
 
     def _reset(self, now):
+        self.manual_active = False
+        self._manual_dig_until = 0
         self.state = "OFFICE_WORK" if self.working else "OFFICE_IDLE"
         self.since = self.last_step = now
         self.last_hit = 0
@@ -245,19 +249,19 @@ class StrikeEngine:
                 self._reset(now)
             return
 
-        if self.working:
-            if self.state != "OFFICE_WORK":
-                mud = self.mud
-                self._reset(now)
-                self.mud = mud
+        if self.working and not self.manual_active:
+            if self.state in ("OFFICE_IDLE", "RESTING"):
+                self._enter("OFFICE_WORK", now)
+                self.fatigue = 0.0
+                self.angry_stage = 0
             return
 
-        if self.state == "OFFICE_WORK":
+        if self.state == "OFFICE_WORK" and not self.working:
             self._enter("OFFICE_IDLE", now)
 
         if self.state == "LEAVING" and now >= self.cross["arrive"]:
             self._enter("WORKING", self.cross["arrive"])
-            self.stop_dig_at = max(self.last_hit + cfg["KEY_IDLE_MS"], now + 320)
+            self.stop_dig_at = max(self.last_hit + cfg["KEY_IDLE_MS"], self._manual_dig_until, now + 450)
             self.phase = 0.22
 
         if self.state in DIG_STATES and now >= self.stop_dig_at:
@@ -270,6 +274,7 @@ class StrikeEngine:
             queued = self.leave_after_return
             self._reset(now)
             if queued:
+                self.manual_active = True
                 self._leave(now)
 
         if self.state == "STRIKE":
@@ -302,7 +307,16 @@ class StrikeEngine:
             elif self.fatigue >= cfg["STRIKE_THRESHOLD"] and elapsed_angry >= cfg["LOOK_AT_HANDS_MS"] + 450:
                 self._throw(now)
 
-    def record_input(self, hit_count=1, *, working=None, enabled=True):
+    def set_enabled(self, enabled):
+        with self.lock:
+            now = self.clock()
+            self.enabled = bool(enabled)
+            if not self.enabled:
+                self.lease = 0
+                self._reset(now)
+            return self._publish(now)
+
+    def record_input(self, hit_count=1, *, working=None, enabled=True, manual_burst=False):
         with self.lock:
             now = self.clock()
             self._step(now)
@@ -318,20 +332,28 @@ class StrikeEngine:
             if working is not None:
                 self.working = working
                 self._step(now)
-            if hit_count > 0 and not self.working:
+            if hit_count > 0:
+                self.manual_active = True
                 self.total_hits += hit_count
-                if self.state in HOME_STATES:
+                if self.state in HOME_STATES or self.state in BATH_STATES or self.state == "STRIKE":
+                    if self.state in BATH_STATES or self.state == "STRIKE":
+                        self.bath["active"] = False
+                        self.mud = None
                     self._leave(now)
                 self.last_hit = now
                 self.hits.extend([now] * hit_count)
                 self._update_rate(now)
+                cfg = CONFIG
+                dig_hold = cfg["KEY_IDLE_MS"] if not manual_burst else 2200
+                if manual_burst:
+                    self._manual_dig_until = max(self._manual_dig_until, now + 2600)
                 if self.state == "RETURNING":
                     self.leave_after_return = True
-                elif self.state not in ("THROWING", "STRIKE", "LEAVING") and self.state not in BATH_STATES:
-                    cfg = CONFIG
+                elif self.state not in ("THROWING", "STRIKE") and self.state not in BATH_STATES:
                     gain = cfg["FATIGUE_GAIN_PER_HIT"] + cfg["FAST_FATIGUE_BONUS"] * (self.energy ** 2)
                     self.fatigue = min(cfg["STRIKE_THRESHOLD"], self.fatigue + hit_count * gain)
-                    self.stop_dig_at = now + cfg["KEY_IDLE_MS"]
+                    dig_base = (self.cross or {}).get("arrive", now) if self.state == "LEAVING" else now
+                    self.stop_dig_at = max(self.stop_dig_at, dig_base + dig_hold)
                     if self.state == "RESTING":
                         self.phase = int(self.phase) + 1.22
                         self._enter("TIRED" if self.fatigue >= cfg["TIRED_THRESHOLD"] else "WORKING", now)
@@ -343,9 +365,13 @@ class StrikeEngine:
         with self.lock:
             now = self.clock()
             self._step(now)
-            if self.state in HOME_STATES:
+            self.enabled = True
+            self.manual_active = True
+            if self.state in HOME_STATES or self.state == "LEAVING":
                 self._enter("WORKING", now)
-                self.stop_dig_at = now + 1500
+                self.stop_dig_at = now + 1800
+            else:
+                self.stop_dig_at = max(self.stop_dig_at, now + 1800)
             k = (self.finds % 3) if kind is None else (int(kind) % 3)
             names = ("破烂旧球鞋", "压扁易拉罐", "闪亮小金币")
             self.discovery = {
@@ -362,6 +388,7 @@ class StrikeEngine:
             now = self.clock()
             self._step(now)
             self.enabled = True
+            self.manual_active = True
             self.fatigue = max(self.fatigue, CONFIG["ANGRY_THRESHOLD"] + 15.0)
             self.angry_stage = 2 if stage == 2 else 1
             offset = CONFIG["LOOK_AT_HANDS_MS"] if stage == 2 else 0
@@ -373,9 +400,10 @@ class StrikeEngine:
             now = self.clock()
             self._step(now)
             self.enabled = True
-            if self.state not in ("THROWING", "OFFICE_WORK"):
-                self.fatigue = CONFIG["STRIKE_THRESHOLD"]
-                self._throw(now)
+            self.manual_active = True
+            self.bath["active"] = False
+            self.fatigue = CONFIG["STRIKE_THRESHOLD"]
+            self._throw(now)
             return self._publish(now)
 
     def push_bathtub(self):
@@ -383,6 +411,8 @@ class StrikeEngine:
             now = self.clock()
             self._step(now)
             self.enabled = True
+            self.manual_active = True
+            self.cross = None
             dur = CONFIG["BATH_ENTER_MS"]
             self.bath.update({
                 "active": True,
@@ -403,6 +433,8 @@ class StrikeEngine:
         with self.lock:
             now = self.clock()
             self._step(now)
+            self.enabled = True
+            self.manual_active = True
             if self.state not in ("BATH_ENTER", "BATH_SOAK"):
                 self.bath["active"] = True
                 self.bath["enter_start_ms"] = now - CONFIG["BATH_ENTER_MS"]
@@ -425,6 +457,7 @@ class StrikeEngine:
             now = self.clock()
             self._step(now)
             self.enabled = True
+            self.manual_active = True
             self.bath["active"] = True
             self.bath["hot_jump"] = False
             self.bath["scrub_zone"] = "none"
@@ -447,6 +480,8 @@ class StrikeEngine:
         with self.lock:
             now = self.clock()
             self._step(now)
+            self.enabled = True
+            self.manual_active = True
             if self.state != "SCRUBBING":
                 self.bath["active"] = True
                 self._enter("SCRUBBING", now)
@@ -472,23 +507,31 @@ class StrikeEngine:
                     self._enter("CLEAN_DONE", now)
             return self._publish(now)
 
-    def return_to_office(self):
+    def return_to_office(self, instant=False):
         with self.lock:
             now = self.clock()
             self._step(now)
             self.mud = None
+            self.discovery = None
             self.bath["active"] = False
+            self.bath["hot_jump"] = False
+            self.bath["scrub_zone"] = "none"
             self.fatigue = 0.0
             self.angry_stage = 0
-            if self.state in HOME_STATES:
+            self.stop_dig_at = 0
+            self._manual_dig_until = 0
+            self.leave_after_return = False
+            if instant or self.state in HOME_STATES:
                 self._reset(now)
             else:
+                self.manual_active = True
                 self._return(now)
             return self._publish(now)
 
     def reset(self):
         with self.lock:
             now = self.clock()
+            self.epoch = uuid4().hex
             self._reset(now)
             return self._publish(now)
 

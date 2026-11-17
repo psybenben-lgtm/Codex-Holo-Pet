@@ -161,12 +161,20 @@ class LiveBadminton:
                     self.phone_at=now
             elif action=='start':
                 applied=not self.closed and now-self.desktop_at<3.2 and self.game.start()
+            elif action=='reset':
+                self.game.reset(now)
+                if data.get('start'):
+                    self.game.start()
+                applied=True
+            elif action=='replay':
+                self.game.reset(now)
+                applied=self.game.start()
             elif action=='barrage':
                 applied=not self.closed and now-self.desktop_at<3.2 and self.game.barrage()
             elif action=='quit':
                 if self.game.phase in ('rally','charge','barrage'):
                     self.game.quit_match()
-                elif self.game.phase=='clear':
+                elif self.game.phase in ('clear','quit','desk'):
                     self.game.reset(now)
                 else:
                     applied=False

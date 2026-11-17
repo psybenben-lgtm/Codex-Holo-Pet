@@ -312,6 +312,8 @@ class ControlBar:
         r2.pack(fill='x')
         self.btn_play=self._mkbtn(r2,'🏸 开始开打',self._on_play,bg='#d97706',fg='#ffffff')
         self.btn_play.pack(side='left',padx=(0,4))
+        self.btn_replay=self._mkbtn(r2,'🔄 重来',lambda:self.desktop.link.send('replay'),bg='#0f766e',fg='#ffffff',padx=6)
+        self.btn_replay.pack(side='left',padx=(0,4))
         self.btn_console=self._mkbtn(r2,'🎛️ 网页控制台',self._on_console,bg='#0284c7',fg='#ffffff')
         self.btn_console.pack(side='left',padx=(0,4))
         self.btn_guide=self._mkbtn(r2,'📱 手机扫码',self._on_guide,bg='#1e293b',fg='#38bdf8')
@@ -552,7 +554,9 @@ class Desktop:
                 HTTP.open(req,timeout=1.5).close()
             except (OSError,ValueError):
                 pass
-        Thread(target=_req,daemon=True).start()
+        t=Thread(target=_req,daemon=False)
+        t.start()
+        t.join(timeout=1.2)
         self.close(remote=True)
 
     def _mouse_hand(self, now):

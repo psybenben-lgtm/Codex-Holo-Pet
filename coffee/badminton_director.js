@@ -447,14 +447,28 @@
   fetch('/api/badminton/live/status', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(applyLiveState).catch(() => {});
 
   function connectSSE() {
-    const es = new EventSource('/api/badminton/stream');
-    es.onmessage = e => {
-      try { applyState(JSON.parse(e.data).data); } catch {}
+    const isEmbed = new URLSearchParams(location.search).get('embed') === '1' || window.self !== window.top;
+    if (isEmbed && typeof BroadcastChannel !== 'undefined') {
+      const bus = new BroadcastChannel('codex-holo-bus');
+      bus.onmessage = e => {
+        try {
+          if (e.data?.badminton) applyState(e.data.badminton);
+          if (e.data?.live) applyLiveState(e.data.live);
+        } catch {}
+      };
+      return;
+    }
+    const syncEs = new EventSource('/api/sync/stream');
+    syncEs.onmessage = e => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.badminton) applyState(msg.badminton);
+        if (msg.live) applyLiveState(msg.live);
+      } catch {}
     };
-    const liveEs = new EventSource('/api/badminton/live/stream');
-    liveEs.onmessage = e => {
-      try { applyLiveState(JSON.parse(e.data).data); } catch {}
-    };
+    const closeEs = () => { try { syncEs.close(); } catch {} };
+    window.addEventListener('pagehide', closeEs);
+    window.addEventListener('beforeunload', closeEs);
   }
   connectSSE();
 
@@ -858,7 +872,7 @@
       g.fillStyle = '#334155';
       g.fillText('请直接复制下方网址', w / 2, h / 2 + 12);
     };
-    img.src = `/api/qrcode?text=${encodeURIComponent(urlText)}&size=${w}`;
+    img.src = `/api/qrcode?text=${encodeURIComponent(urlText)}&size=${w}&_=${Date.now()}`;
   }
 
   function updateDeviceUrls(ip) {
@@ -939,7 +953,11 @@
 
   $('btnStartPlay').onclick = async () => {
     if (liveState?.desktop_online) {
-      await livePost('start', {});
+      if (liveState.phase === 'desk') {
+        await livePost('start', {});
+      } else {
+        await livePost('replay', {});
+      }
     } else {
       await livePost('launch_overlay', { camera_enabled: true });
       apiPost('start_play', {});
@@ -1006,16 +1024,41 @@
   };
 
   $('btnPauseResume').onclick = () => apiPost('set_paused', { paused: !state?.paused });
-  $('btnReplayScene').onclick = () => { stopAllAudio(); apiPost('replay_scene', {}); };
+  $('btnReplayScene').onclick = () => {
+    stopAllAudio();
+    if (liveState?.desktop_online) {
+      livePost('replay', {});
+    }
+    apiPost('replay_scene', {});
+  };
   $('btnPrevScene').onclick = () => { stopAllAudio(); apiPost('prev_scene', {}); };
   $('btnNextScene').onclick = () => { stopAllAudio(); apiPost('next_scene', {}); };
   $('btnReturnDaily').onclick = () => {
     stopAllAudio();
-    if (liveState?.desktop_online) {
-      livePost('quit', {});
-    }
+    livePost('quit', {});
     apiPost('jump_scene', { scene_id: 'S0' });
   };
+  if ($('btnResetAllBm')) {
+    $('btnResetAllBm').onclick = () => {
+      stopAllAudio();
+      fetch('/api/pet/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: 'all' }),
+      }).catch(() => {});
+    };
+  }
+  const switchPetSuite = target => {
+    fetch('/api/pet/mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: target, spawn: true }),
+    }).then(() => {
+      if (window.top === window.self) location.href = '/';
+    }).catch(() => {});
+  };
+  if ($('btnSwitchCoffee')) $('btnSwitchCoffee').onclick = () => switchPetSuite('coffee');
+  if ($('btnSwitchStrike')) $('btnSwitchStrike').onclick = () => switchPetSuite('strike');
 
   function closeDesktopOverlay() {
     livePost('close', {});
@@ -1058,17 +1101,23 @@
   $('selLanIp').onchange = e => {
     updateDeviceUrls(e.target.value);
     apiPost('update_params', { preferred_ip: e.target.value });
+    fetch('/coffee/lan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip: e.target.value }) }).catch(() => {});
   };
   $('btnApplyIp').onclick = () => {
     const custom = $('inpCustomIp').value.trim();
     if (custom) {
       updateDeviceUrls(custom);
       apiPost('update_params', { preferred_ip: custom });
+      fetch('/coffee/lan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip: custom }) }).catch(() => {});
     }
   };
   $('btnRefreshLan').onclick = () => {
     lastLanKey = '';
     apiPost('refresh_lan', {});
+    fetch('/coffee/lan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh: true }) })
+      .then(r => r.ok ? r.json() : null)
+      .then(lan => { if (lan?.ips?.length) populateLanIps(lan.ips, lan.ip); })
+      .catch(() => {});
   };
   $('btnTestHolo').onclick = () => apiPost('manual_serve', { fast: false });
   $('btnTestPing').onclick = () => {

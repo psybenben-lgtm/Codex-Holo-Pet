@@ -47,53 +47,143 @@ STORY_SCENES = [
 SCENE_INDEX = {item["id"]: idx for idx, item in enumerate(STORY_SCENES)}
 
 
+def _decode_cmd_output(raw):
+    """兼容 Windows 中文 GBK 与 UTF-8 控制台编码解码命令输出。"""
+    best = ''
+    best_score = -10**9
+    for enc in ('utf-8', 'gbk', 'cp936'):
+        try:
+            text = raw.decode(enc)
+            score = 100
+        except UnicodeDecodeError:
+            text = raw.decode(enc, errors='replace')
+            score = -text.count('\ufffd') * 10
+        for kw in ('WLAN', 'Wi-Fi', '无线', '以太网', 'Ethernet', '默认网关', 'Default Gateway'):
+            if kw in text:
+                score += 5
+        if score > best_score:
+            best_score = score
+            best = text
+    return best
+
+
+def _probe_outbound_ips():
+    """通过无发包 UDP 路由探测 OS 当前实际出网网卡的本地 IP。"""
+    found = []
+    for target in (('223.5.5.5', 80), ('114.114.114.114', 80), ('1.1.1.1', 80)):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.settimeout(0.35)
+                s.connect(target)
+                ip = s.getsockname()[0]
+                if _is_valid_lan_ip(ip, ''):
+                    found.append(ip)
+        except Exception:
+            pass
+    return found
+
+
+def _win_hidden_subprocess_kwargs():
+    """Windows 下隐藏控制台子进程窗口，彻底杜绝 ipconfig 等命令行闪现任务栏黑框。"""
+    if sys.platform != 'win32':
+        return {}
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= getattr(subprocess, 'STARTF_USESHOWWINDOW', 0)
+    si.wShowWindow = getattr(subprocess, 'SW_HIDE', 0)
+    return {
+        'creationflags': getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+        'startupinfo': si,
+    }
+
+
 def detect_lan_ips():
     """
     智能识别本机真实局域网 IPv4 地址列表：
-    排除 Clash/Mihomo/VPN 虚拟网卡 (198.18.*)、链路本地 (169.254.*)、WSL/Hyper-V/Docker 等虚拟网段，
-    将手机真正可连的物理 Wi-Fi / 热点 IP (192.168.x.x / 172.20.10.x / 10.x.x.x) 排在最前！
+    排除 Clash/Mihomo/VPN 虚拟网卡 (198.18.*)、Tailscale/CGNAT (100.64-127.*)、链路本地 (169.254.*)、
+    WSL/Hyper-V/Docker/VirtualBox/VMware 等虚拟网段，
+    将带有默认网关且手机真正可连的物理 Wi-Fi / 热点 / 物理网卡 IP 排在最前！
     """
+    route_ips = _probe_outbound_ips()
     candidates = []
-    # 1. Windows ipconfig 解析真实无线局域网适配器 WLAN
+
+    # 1. Windows ipconfig 解析各网卡分段、网关与适配器类型
     if sys.platform == 'win32':
         try:
-            out = subprocess.check_output(['ipconfig'], stderr=subprocess.STDOUT, timeout=1.5)
-            text = out.decode('gbk', errors='ignore')
-            current_adapter = ''
+            out = subprocess.check_output(
+                ['ipconfig'],
+                stderr=subprocess.STDOUT,
+                timeout=1.8,
+                **_win_hidden_subprocess_kwargs(),
+            )
+            text = _decode_cmd_output(out)
+            blocks = []
+            cur_name = ''
+            cur_ips = []
+            cur_has_gw = False
             for line in text.splitlines():
                 line_s = line.strip()
-                if line and not line.startswith(' ') and ':' in line:
-                    current_adapter = line_s.lower()
-                elif 'IPv4' in line_s and ':' in line_s:
+                if line and not line[0].isspace() and ':' in line:
+                    if cur_name or cur_ips:
+                        blocks.append((cur_name, cur_ips, cur_has_gw))
+                    cur_name = line_s.lower()
+                    cur_ips = []
+                    cur_has_gw = False
+                elif 'ipv4' in line_s.lower() and ':' in line_s:
                     ip = line_s.split(':')[-1].strip().split('(')[0].strip()
-                    if _is_valid_lan_ip(ip, current_adapter):
-                        # WLAN / Wi-Fi 适配器最高优先级
-                        prio = 0 if ('wlan' in current_adapter or 'wi-fi' in current_adapter or '无线' in current_adapter) else 1
-                        candidates.append((prio, ip))
+                    cur_ips.append(ip)
+                elif ('默认网关' in line_s or 'default gateway' in line_s.lower()) and ':' in line_s:
+                    gw = line_s.split(':', 1)[-1].strip()
+                    if gw and gw.count('.') == 3:
+                        cur_has_gw = True
+            if cur_name or cur_ips:
+                blocks.append((cur_name, cur_ips, cur_has_gw))
+
+            for adapter_name, ips, has_gw in blocks:
+                is_wifi = any(k in adapter_name for k in ('wlan', 'wi-fi', 'wireless', '无线'))
+                is_hotspot = any(k in adapter_name for k in ('wi-fi direct', 'local area connection*', '本地连接*'))
+                is_eth = any(k in adapter_name for k in ('ethernet', '以太网'))
+                for ip in ips:
+                    if not _is_valid_lan_ip(ip, adapter_name):
+                        continue
+                    is_hotspot_ip = is_hotspot or ip.startswith('192.168.137.')
+                    # VirtualBox Host-Only 常见默认网段 192.168.56.x，无网关时降到最低
+                    is_vbox_subnet = ip.startswith('192.168.56.') and not has_gw
+                    on_route = ip in route_ips
+                    if is_wifi and (has_gw or on_route):
+                        tier = 0
+                    elif is_hotspot_ip:
+                        tier = 1
+                    elif is_eth and (has_gw or on_route) and not is_vbox_subnet:
+                        tier = 2
+                    elif on_route and not is_vbox_subnet:
+                        tier = 3
+                    elif has_gw and not is_vbox_subnet:
+                        tier = 4
+                    elif is_wifi:
+                        tier = 5
+                    elif not is_vbox_subnet:
+                        tier = 6
+                    else:
+                        tier = 9
+                    candidates.append((tier, ip))
         except Exception:
             pass
 
     # 2. UDP 探测路由出口 IP
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.settimeout(0.4)
-            s.connect(('223.5.5.5', 80))
-            ip = s.getsockname()[0]
-            if _is_valid_lan_ip(ip, ''):
-                candidates.append((1, ip))
-    except Exception:
-        pass
+    for ip in route_ips:
+        candidates.append((3 if ip.startswith('192.168.') else 4, ip))
 
     # 3. 主机名关联的所有 IPv4
     try:
         for ip in socket.gethostbyname_ex(socket.gethostname())[2]:
             if _is_valid_lan_ip(ip, ''):
-                prio = 1 if ip.startswith('192.168.') else 2
-                candidates.append((prio, ip))
+                is_vbox_subnet = ip.startswith('192.168.56.')
+                tier = 8 if is_vbox_subnet else (6 if ip.startswith('192.168.') else 7)
+                candidates.append((tier, ip))
     except Exception:
         pass
 
-    candidates.sort(key=lambda item: (item[0], 0 if item[1].startswith('192.168.') else 1))
+    candidates.sort(key=lambda item: (item[0], 0 if item[1].startswith('192.168.') else (1 if item[1].startswith('10.') else 2)))
     ordered = []
     for _, ip in candidates:
         if ip not in ordered:
@@ -104,13 +194,28 @@ def detect_lan_ips():
 
 
 def _is_valid_lan_ip(ip, adapter_name=''):
-    if not ip or ip.startswith('127.') or ip.startswith('169.254.') or ip.startswith('198.18.') or ip.startswith('198.19.'):
-        return False
-    bad_keywords = ('wsl', 'hyper-v', 'vethernet', 'vmware', 'virtualbox', 'clash', 'meta', 'tailscale', 'zerotier', 'tun', 'tap', 'docker')
-    if any(k in adapter_name for k in bad_keywords):
+    if not ip or ip.startswith('0.') or ip.startswith('127.') or ip.startswith('169.254.') or ip.startswith('198.18.') or ip.startswith('198.19.') or ip.startswith('255.'):
         return False
     parts = ip.split('.')
     if len(parts) != 4:
+        return False
+    try:
+        octets = [int(p) for p in parts]
+    except ValueError:
+        return False
+    if any(not (0 <= o <= 255) for o in octets):
+        return False
+    # 排除 100.64.0.0/10 (Tailscale / ZeroTier / 运营商级 NAT / 虚拟代理)
+    if octets[0] == 100 and 64 <= octets[1] <= 127:
+        return False
+    bad_keywords = (
+        'wsl', 'hyper-v', 'hyperv', 'vethernet', 'vmware', 'vmnet', 'virtualbox', 'vbox', 'host-only',
+        'virtual', '虚拟', 'clash', 'meta', 'mihomo', 'v2ray', 'sing-box', 'tailscale', 'zerotier',
+        'wireguard', 'sangfor', 'easyconnect', 'oray', 'todesk', 'sunlogin', 'hamachi', 'radmin',
+        'bluetooth', '蓝牙', 'npcap', 'loopback', 'tun', 'tap', 'docker', 'teredo', 'isatap',
+    )
+    low = (adapter_name or '').lower()
+    if any(k in low for k in bad_keywords):
         return False
     return True
 

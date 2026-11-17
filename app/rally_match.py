@@ -109,7 +109,7 @@ class Match:
         self.events.append(name)
 
     def start(self):
-        if self.phase != 'desk':
+        if self.phase not in ('desk', 'quit'):
             return False
         self.reset(self.now)
         self.enter('clear')

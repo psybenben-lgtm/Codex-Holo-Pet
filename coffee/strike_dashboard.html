@@ -291,13 +291,16 @@
       </div>
       <div class="top-actions">
         <a class="btn btn-cyan" href="/" style="text-decoration:none;display:inline-flex;align-items:center;">✨ 三合一工作台</a>
-        <a class="btn" href="/badminton/director" style="text-decoration:none;display:inline-flex;align-items:center;">🏸 羽毛球导演台</a>
+        <button class="btn" onclick="switchSuiteMode('coffee')">☕ 切倒咖啡</button>
+        <button class="btn" onclick="switchSuiteMode('badminton')">🏸 切羽毛球</button>
         <a class="btn" href="/guide" style="text-decoration:none;display:inline-flex;align-items:center;">🧭 连接向导</a>
         <button class="btn btn-gold" onclick="returnToOffice()">🏠 回到工位 (收起铲子回办公室)</button>
-        <button class="btn btn-red" onclick="triggerThrow()">💥 一键暴怒跨屏甩泥</button>
-        <button class="btn btn-cyan" onclick="pushBathtub()">🛁 推入浴缸泡澡</button>
+        <button class="btn btn-cyan" onclick="simulateHits(12)">⛏️ 立即出门挖土</button>
+        <button class="btn btn-red" onclick="triggerThrow()">💥 立即暴怒跨屏甩泥</button>
+        <button class="btn btn-cyan" onclick="pushBathtub()">🛁 立即泡澡 (推浴缸)</button>
         <button class="btn btn-green" onclick="startScrub()">🧽 电脑背向搓澡</button>
-        <button class="btn" onclick="resetState()">🔄 彻底重置</button>
+        <button class="btn" onclick="resetState()">🔄 重来搓澡(部分)</button>
+        <button class="btn" onclick="resetAll()">🧹 整体重来</button>
         <button class="btn btn-red" id="btnShutdownAll" onclick="shutdownAll()">⏻ 关闭桌面与服务</button>
       </div>
     </div>
@@ -311,7 +314,7 @@
           <a href="/coffee/desk" target="_blank" class="tag">独立打开 ↗</a>
         </div>
         <div class="iframe-wrap">
-          <iframe src="/coffee/desk" title="电脑工位与搓澡预览"></iframe>
+          <iframe src="/coffee/desk?embed=1" title="电脑工位与搓澡预览"></iframe>
         </div>
       </div>
 
@@ -333,7 +336,7 @@
           <a href="/coffee/bath" target="_blank" class="tag">独立打开 ↗</a>
         </div>
         <div class="iframe-wrap">
-          <iframe src="/coffee/bath" title="iPhone触控端预览"></iframe>
+          <iframe src="/coffee/bath?embed=1" title="iPhone触控端预览"></iframe>
         </div>
       </div>
     </div>
@@ -379,10 +382,28 @@
         </div>
 
         <div class="lan-box" id="lanBox">
-          <div><strong>📲 手机真机直连地址 (同一 Wi-Fi 下用手机浏览器打开)：</strong></div>
-          <div>🔮 荣耀/全息手机 (四面金字塔)：<code id="urlHolo">加载中...</code></div>
-          <div>🛁 iPhone 触控端 (推浴缸/搓澡)：<code id="urlBath">加载中...</code></div>
-          <div>☕ iPhone 倒咖啡控制端：<code id="urlPour">加载中...</code></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+            <strong>📲 手机真机直连地址与二维码 (同一 Wi-Fi 扫码)：</strong>
+            <button class="btn" style="padding:4px 10px;font-size:11.5px;" onclick="refreshDashLan(true)">🔄 刷新局域网 IP</button>
+          </div>
+          <div id="dashLanWarn" style="font-size:11.5px;color:#fbbf24;margin-top:4px;display:none;"></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;">
+            <div style="text-align:center;background:#090d16;padding:6px;border-radius:8px;">
+              <img id="qrDashHolo" src="" alt="全息挖土二维码" style="width:92px;height:92px;background:#fff;padding:3px;border-radius:6px;display:block;margin:0 auto 4px;">
+              <div style="font-size:11px;color:#cbd5e1;">🔮 全息挖土/泡澡</div>
+              <code id="urlHolo" style="font-size:10px;word-break:break-all;">加载中...</code>
+            </div>
+            <div style="text-align:center;background:#090d16;padding:6px;border-radius:8px;">
+              <img id="qrDashBath" src="" alt="手机搓澡二维码" style="width:92px;height:92px;background:#fff;padding:3px;border-radius:6px;display:block;margin:0 auto 4px;">
+              <div style="font-size:11px;color:#cbd5e1;">🛁 手机推缸搓澡</div>
+              <code id="urlBath" style="font-size:10px;word-break:break-all;">加载中...</code>
+            </div>
+            <div style="text-align:center;background:#090d16;padding:6px;border-radius:8px;">
+              <img id="qrDashPour" src="" alt="手机倒咖啡二维码" style="width:92px;height:92px;background:#fff;padding:3px;border-radius:6px;display:block;margin:0 auto 4px;">
+              <div style="font-size:11px;color:#cbd5e1;">☕ 手机倒咖啡</div>
+              <code id="urlPour" style="font-size:10px;word-break:break-all;">加载中...</code>
+            </div>
+          </div>
         </div>
 
         <div class="log-box" id="logBox">
@@ -516,28 +537,73 @@
     }
 
     function connectStream() {
-      const evt = new EventSource('/api/strike/stream');
+      const bus = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('codex-holo-bus') : null;
+      const evt = new EventSource('/api/sync/stream');
       evt.onopen = () => {
         connBadge.textContent = '● 实时同步在线';
         connBadge.style.color = '#4ade80';
       };
       evt.onmessage = ({ data }) => {
-        const snapshot = JSON.parse(data).data;
-        updateUI(snapshot);
+        const msg = JSON.parse(data);
+        if (msg.strike) updateUI(msg.strike);
+        bus?.postMessage(msg);
       };
       evt.onerror = () => {
         connBadge.textContent = '○ 自动重连中...';
         connBadge.style.color = '#facc15';
       };
+      const cleanup = () => {
+        try { evt.close(); } catch {}
+        document.querySelectorAll('iframe').forEach(fr => { try { fr.src = 'about:blank'; } catch {} });
+      };
+      window.addEventListener('pagehide', cleanup);
+      window.addEventListener('beforeunload', cleanup);
     }
     connectStream();
 
-    fetch('/coffee/lan').then(r => r.json()).then(({ ip, http_port }) => {
-      const port = http_port || location.port || 29765;
-      document.getElementById('urlHolo').textContent = `http://${ip}:${port}/coffee/holo?mode=strike&faces=4`;
-      document.getElementById('urlBath').textContent = `http://${ip}:${port}/coffee/bath`;
-      document.getElementById('urlPour').textContent = `http://${ip}:${port}/coffee/pour`;
-    }).catch(() => {});
+    function renderDashLan(lan) {
+      if (!lan || !lan.ip) return;
+      const ip = lan.ip;
+      const port = lan.http_port || location.port || 29765;
+      const holo = `http://${ip}:${port}/coffee/holo?mode=strike&faces=4`;
+      const bath = `http://${ip}:${port}/coffee/bath`;
+      const pour = `http://${ip}:${port}/coffee/pour`;
+      document.getElementById('urlHolo').textContent = holo;
+      document.getElementById('urlBath').textContent = bath;
+      document.getElementById('urlPour').textContent = pour;
+      const bust = Date.now();
+      document.getElementById('qrDashHolo').src = `/api/qrcode?text=${encodeURIComponent(holo)}&_=${bust}`;
+      document.getElementById('qrDashBath').src = `/api/qrcode?text=${encodeURIComponent(bath)}&_=${bust}`;
+      document.getElementById('qrDashPour').src = `/api/qrcode?text=${encodeURIComponent(pour)}&_=${bust}`;
+      const warn = document.getElementById('dashLanWarn');
+      if (warn) {
+        if (lan.firewall_warning) {
+          warn.style.display = 'block';
+          warn.textContent = '⚠️ ' + lan.firewall_warning;
+        } else {
+          warn.style.display = 'none';
+        }
+      }
+    }
+
+    function refreshDashLan(force = false) {
+      const req = force
+        ? fetch('/coffee/lan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh: true }) })
+        : fetch('/coffee/lan', { cache: 'no-store' });
+      req.then(r => r.json()).then(renderDashLan).catch(() => {});
+    }
+    refreshDashLan(false);
+
+    function switchSuiteMode(target) {
+      fetch('/api/pet/mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: target, spawn: true })
+      }).then(r => r.json()).then(() => {
+        log(`🔄 已请求切换到【${target === 'coffee' ? '跨屏倒咖啡' : (target === 'badminton' ? '桌面羽毛球' : '挖土搓澡')}】模式`);
+        if (target === 'badminton') location.href = '/badminton/director';
+      }).catch(() => {});
+    }
 
     function apiPost(path, body = {}, msg = '') {
       return fetch('/api/strike/' + path, {
@@ -552,7 +618,7 @@
     }
 
     function simulateHits(count) {
-      apiPost('input', { hits: count }, `输入模拟 ${count} 次敲键 -> 挥铲挖土`);
+      apiPost('input', { hits: count, manual_burst: true }, `⛏️ 触发 ${count} 次敲击 -> 小人离开工位开始挖土！`);
     }
 
     function simulateFastBurst() {
@@ -608,7 +674,17 @@
     }
 
     function resetState() {
-      apiPost('reset', {}, '🔄 已重置所有状态并清除屏幕泥巴。');
+      apiPost('reset', {}, '🔄 已重置挖土/搓澡状态并清除屏幕泥巴。');
+    }
+
+    function resetAll() {
+      fetch('/api/pet/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: 'all' })
+      }).then(() => {
+        log('🧹 已执行【整体重来】：咖啡、挖土搓澡、羽毛球状态全部清零回工位。');
+      }).catch(() => {});
     }
 
     function shutdownAll() {
@@ -620,7 +696,7 @@
       }).then(() => {
         const b = document.getElementById('connBadge');
         if (b) { b.textContent = '⏻ 服务与桌面已停止，可关闭本页'; b.style.color = '#f87171'; }
-        appendLog('✅ 已发送退出信号：桌面桌宠与本地服务已停止，您现在可安全关闭本网页标签。');
+        log('✅ 已发送退出信号：桌面桌宠与本地服务已停止，您现在可安全关闭本网页标签。');
         try { window.close(); } catch {}
       }).catch(() => {});
     }
@@ -628,7 +704,7 @@
     // 支持在控制台页面直接敲击电脑键盘实时驱动挖土
     window.addEventListener('keydown', e => {
       if (e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
-      apiPost('input', { hits: 1 });
+      apiPost('input', { hits: 1, manual_burst: false });
     });
   </script>
 </body>

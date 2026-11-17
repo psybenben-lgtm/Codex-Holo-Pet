@@ -714,6 +714,34 @@ const Pixel = (() => {
         }
       } else if (st === 'SCRUBBING' || st === 'CLEAN_DONE') {
         drawDeskScrubbing(g, 295, 212, t, strikeState, nowMs);
+      } else if (st === 'BATH_ENTER' || st === 'BATH_SOAK') {
+        const bath = strikeState.bath || {};
+        const elapsed = Math.max(0, nowMs - strikeState.since);
+        const isHot = Boolean(bath.hot_jump) || Number(bath.temp || 42) >= 72;
+        if (st === 'BATH_ENTER' && elapsed < 520) {
+          const p = clamp(elapsed / 520);
+          person(g, mix(251, 470, ease(p)), mix(188, 210, ease(p)), t, 'walk', false, false);
+        } else {
+          for (let i = 0; i < 6; i++) {
+            const bx = 360 + (i % 3) * 28 + Math.sin(t * 4.5 + i) * 6;
+            const by = 225 - ((t * 40 + i * 22) % 90);
+            g.fillStyle = isHot ? '#fca5a5' : ['#ffffff', '#bae6fd', '#fbcfe8'][i % 3];
+            g.beginPath(); g.arc(bx, by, 6 + (i % 2) * 2, 0, Math.PI * 2); g.fill();
+          }
+          textWithOutline(
+            g,
+            isHot ? `HOT ${Math.round(bath.temp || 86)}C!` : `BATH ${Math.round(bath.temp || 42)}C`,
+            310,
+            isHot ? 110 - Math.abs(Math.sin(t * 16) * 14) : 122,
+            isHot ? '#ff4d6d' : '#7dd3fc',
+            '#1f2134',
+            12
+          );
+        }
+      } else if (['WORKING', 'TIRED', 'RESTING', 'ANGRY', 'THROWING', 'STRIKE'].includes(st)) {
+        const isRage = ['ANGRY', 'THROWING', 'STRIKE'].includes(st);
+        const txt = st === 'THROWING' ? 'THROW MUD!' : (st === 'STRIKE' ? 'SPLAT!!' : (st === 'ANGRY' ? 'ANGRY!!' : (st === 'TIRED' ? 'TIRED...' : 'DIGGING...')));
+        textWithOutline(g, txt, 315, 130 + Math.sin(t * 8) * 3, isRage ? '#f87171' : '#fde047', '#1f2134', 11);
       }
       if (strikeState.mud) {
         drawScreenMudSplat(g, strikeState.mud, nowMs);

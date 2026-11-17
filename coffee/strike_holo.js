@@ -32,20 +32,43 @@ class StrikeHoloController {
     if (this.events) {
       try { this.events.close(); } catch {}
     }
+    const applyNext = next => {
+      if (!next || (this.state?.epoch === next.epoch && next.seq < this.state.seq)) return;
+      if (this.state?.epoch !== next.epoch) {
+        this.lastContact = null;
+        this.offset = next.now_ms - this.wall();
+        this.calibrate();
+      }
+      this.state = next;
+      onState?.(next);
+    };
+    const isEmbed = new URLSearchParams(location.search).get('embed') === '1' || window.self !== window.top;
+    if (isEmbed && typeof BroadcastChannel !== 'undefined') {
+      let lastBus = 0;
+      const pull = () => fetch('/api/strike/status', { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : null)
+        .then(snap => { if (snap) applyNext(snap); })
+        .catch(() => {});
+      this.bus = new BroadcastChannel('codex-holo-bus');
+      this.bus.onmessage = e => {
+        if (e.data?.strike) {
+          lastBus = performance.now();
+          applyNext(e.data.strike);
+        }
+      };
+      pull();
+      this.calibrate();
+      setInterval(() => {
+        if (performance.now() - lastBus > 1800) pull();
+      }, 1500);
+      return;
+    }
     const events = new EventSource('/api/strike/stream');
     this.events = events;
     events.onopen = () => this.calibrate();
     events.onmessage = ({ data }) => {
       try {
-        const next = JSON.parse(data).data;
-        if (!next || (this.state?.epoch === next.epoch && next.seq < this.state.seq)) return;
-        if (this.state?.epoch !== next.epoch) {
-          this.lastContact = null;
-          this.offset = next.now_ms - this.wall();
-          this.calibrate();
-        }
-        this.state = next;
-        onState?.(next);
+        applyNext(JSON.parse(data).data);
       } catch {}
     };
     events.onerror = () => {
@@ -54,14 +77,14 @@ class StrikeHoloController {
         fetch('/api/strike/status', { cache: 'no-store' })
           .then(r => r.json())
           .then(snap => {
-            if (snap) {
-              this.state = snap;
-              onState?.(snap);
-            }
+            if (snap) applyNext(snap);
           })
           .catch(() => {});
       }, 600);
     };
+    const closeStream = () => { try { this.events?.close(); } catch {} };
+    window.addEventListener('pagehide', closeStream);
+    window.addEventListener('beforeunload', closeStream);
   }
 
   wall() {

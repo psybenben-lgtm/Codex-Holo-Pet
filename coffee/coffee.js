@@ -27,6 +27,7 @@ let gravityStrength = 1, shakeX = 0, shakeY = 0;
 let lastSubmit = -Infinity, sentFlow = 0, motionBaseline, motionEnabled = false;
 
 const params = new URLSearchParams(location.search);
+const isEmbedFrame = params.get('embed') === '1' || window.self !== window.top;
 const apk = role === 'holo' && params.get('apk') === '1';
 const selectedMode = params.get('mode');
 const autoStrike = apk || selectedMode === 'auto';
@@ -40,8 +41,8 @@ const strikeHolo = new StrikeHoloController(state => {
   latestStrikeState = state;
   strikeEnabled = state.enabled;
   if (role === 'holo') {
-    const active = forcedStrike ?? (strikeEnabled || state.state !== 'OFFICE_IDLE');
-    if ((autoStrike || selectedMode === 'strike') && active !== isStrikeMode) {
+    const active = forcedStrike ?? Boolean(strikeEnabled || (state.state && !['OFFICE_IDLE', 'OFFICE_WORK'].includes(state.state)));
+    if ((autoStrike || selectedMode === 'strike' || !params.get('lock')) && active !== isStrikeMode) {
       showStrike(active);
     }
   }
@@ -120,11 +121,36 @@ function connection(on) {
   if (resetPour) resetPour.disabled = !on;
 }
 
-const events = new EventSource('/coffee/events');
-events.onmessage = e => { apply(JSON.parse(e.data)); connection(true); };
-events.onerror = () => { connection(false); setNote('连接恢复中...'); };
-events.onopen = () => { bestRtt = Infinity; calibrateClock(); };
-setInterval(() => { if (connected) { bestRtt = Infinity; calibrateClock(); } }, 60000);
+let events = null;
+if (isEmbedFrame && typeof BroadcastChannel !== 'undefined') {
+  let lastBusAt = 0;
+  const pullCoffee = () => fetch('/coffee/status', { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : null)
+    .then(snap => { if (snap) { apply(snap); connection(true); } })
+    .catch(() => connection(false));
+  const bus = new BroadcastChannel('codex-holo-bus');
+  bus.onmessage = e => {
+    if (e.data?.coffee) {
+      lastBusAt = performance.now();
+      apply(e.data.coffee);
+      connection(true);
+    }
+  };
+  pullCoffee();
+  calibrateClock();
+  setInterval(() => {
+    if (performance.now() - lastBusAt > 1800) pullCoffee();
+  }, 1500);
+} else {
+  events = new EventSource('/coffee/events');
+  events.onmessage = e => { apply(JSON.parse(e.data)); connection(true); };
+  events.onerror = () => { connection(false); setNote('连接恢复中...'); };
+  events.onopen = () => { bestRtt = Infinity; calibrateClock(); };
+  setInterval(() => { if (connected) { bestRtt = Infinity; calibrateClock(); } }, 60000);
+  const closeEvents = () => { try { events?.close(); } catch {} };
+  window.addEventListener('pagehide', closeEvents);
+  window.addEventListener('beforeunload', closeEvents);
+}
 
 async function post(path, data) {
   const response = await fetch('/coffee/' + path, {
@@ -692,7 +718,13 @@ function initBathTouchEvents() {
   if (swBtn) {
     swBtn.onclick = () => {
       unlockAudio();
-      setBathMode(!inBathTouchMode);
+      const nextBath = !inBathTouchMode;
+      setBathMode(nextBath);
+      fetch('/api/pet/mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: nextBath ? 'strike' : 'coffee', spawn: true }),
+      }).catch(() => {});
     };
   }
 
@@ -1091,7 +1123,7 @@ function showStrike(active) {
   $('scene-kicker').hidden = active;
   $('amount').hidden = active;
   $('mode-toggle').textContent = active ? '切到咖啡' : '切到挖土';
-  $('reset').hidden = active;
+  if ($('reset')) $('reset').hidden = false;
   setNote(active ? '点画面可切换清屏全屏。支持接收跨屏挖土、迎面甩泥与推入木桶泡澡！' : '对准金字塔后，可切到四面全屏。');
 }
 
@@ -1152,14 +1184,30 @@ if (role === 'lobby') {
   $('scene').hidden = false;
 
   const resetAction = () => {
-    if (snapshot) post('reset', { round: snapshot.round }).catch(() => {});
-    postStrike('reset', {});
+    const scope = (role === 'pour' || role === 'bath')
+      ? (inBathTouchMode ? 'strike' : 'coffee')
+      : (isStrikeMode ? 'strike' : 'coffee');
+    fetch('/api/pet/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope }),
+    }).catch(() => {});
   };
 
   const rBtn = $('reset');
   if (rBtn) {
     rBtn.disabled = false;
     rBtn.onclick = resetAction;
+  }
+  const rAllBtn = $('reset-all-btn');
+  if (rAllBtn) {
+    rAllBtn.onclick = () => {
+      fetch('/api/pet/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: 'all' }),
+      }).catch(() => {});
+    };
   }
   const rPour = $('reset-pour');
   if (rPour) {
@@ -1168,7 +1216,13 @@ if (role === 'lobby') {
   }
   const retOfficeBtn = $('return-office-btn');
   if (retOfficeBtn) {
-    retOfficeBtn.onclick = () => postStrike('return_office', {});
+    retOfficeBtn.onclick = () => {
+      fetch('/api/pet/return_office', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      }).catch(() => {});
+    };
   }
 
   if (role === 'pour' || role === 'bath') {
@@ -1272,9 +1326,26 @@ if (role === 'lobby') {
       showStrike(isStrikeMode);
       $('mode-toggle').hidden = false;
       $('mode-toggle').onclick = () => {
-        forcedStrike = !isStrikeMode;
-        showStrike(forcedStrike);
+        const nextStrike = !isStrikeMode;
+        forcedStrike = null;
+        showStrike(nextStrike);
+        fetch('/api/pet/mode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: nextStrike ? 'strike' : 'coffee', spawn: true }),
+        }).catch(() => {});
       };
+      const bmBtn = $('mode-badminton-btn');
+      if (bmBtn) {
+        bmBtn.hidden = false;
+        bmBtn.onclick = () => {
+          fetch('/api/pet/mode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: 'badminton', spawn: true }),
+          }).catch(() => {});
+        };
+      }
       if (isStrikeMode && params.get('embed') !== '1') {
         document.body.classList.add('cinema');
       }

@@ -20,6 +20,9 @@ from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parent
+RUNTIME_DIR = ROOT / '.rally-runtime'
+if RUNTIME_DIR.is_dir() and str(RUNTIME_DIR) not in sys.path:
+    sys.path.insert(0, str(RUNTIME_DIR))
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / 'app'))
 
@@ -144,6 +147,111 @@ SOURCE_MS = 85
 CERT_DIR = ROOT / 'coffee' / '.lan-certificate'
 
 
+_FW_CACHE = {'ts': 0.0, 'active': False, 'rule_ok': True, 'warning': ''}
+
+
+def _win_hidden_subprocess_kwargs(new_group=False):
+    """Windows 下隐藏后台子进程与控制台命令行，绝不混用 CREATE_NO_WINDOW 与 DETACHED_PROCESS。"""
+    if sys.platform != 'win32':
+        return {}
+    flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+    if new_group:
+        flags |= getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= getattr(subprocess, 'STARTF_USESHOWWINDOW', 0)
+    si.wShowWindow = getattr(subprocess, 'SW_HIDE', 0)
+    return {'creationflags': flags, 'startupinfo': si}
+
+
+def check_windows_firewall_status(force=False):
+    """只读检查 Windows 防火墙状态与当前端口入站放行规则（隐藏子进程窗口 + 5 分钟缓存，绝不弹黑框/阻塞响应）。"""
+    if sys.platform != 'win32':
+        return {'active': False, 'rule_ok': True, 'warning': ''}
+    now = time.monotonic()
+    if not force and _FW_CACHE['ts'] > 0.0 and (now - _FW_CACHE['ts'] < 300.0):
+        return dict(_FW_CACHE)
+    active = False
+    rule_ok = False
+    rule_name = f'Codex-Holo-Pet-TCP-{HTTP}'
+    hidden_kw = _win_hidden_subprocess_kwargs()
+    try:
+        prof = subprocess.check_output(
+            ['netsh', 'advfirewall', 'show', 'currentprofile'],
+            stderr=subprocess.STDOUT,
+            timeout=0.6,
+            **hidden_kw,
+        )
+        txt = prof.decode('utf-8', errors='ignore') + prof.decode('gbk', errors='ignore')
+        active = any(line for line in txt.splitlines() if ('状态' in line or 'State' in line) and ('启用' in line or 'ON' in line.upper()))
+    except Exception:
+        active = False
+    if active:
+        try:
+            rule = subprocess.check_output(
+                ['netsh', 'advfirewall', 'firewall', 'show', 'rule', f'name={rule_name}'],
+                stderr=subprocess.STDOUT,
+                timeout=0.6,
+                **hidden_kw,
+            )
+            rule_txt = rule.decode('utf-8', errors='ignore') + rule.decode('gbk', errors='ignore')
+            rule_ok = rule_name in rule_txt and str(HTTP) in rule_txt
+        except Exception:
+            rule_ok = False
+    else:
+        rule_ok = True
+    warning = (
+        f'Windows 防火墙处于开启状态，且未检测到 {rule_name} 规则（非管理员双击启动时无法自动写入防火墙）。'
+        f'若手机扫码打不开，请以管理员执行：netsh advfirewall firewall add rule name="{rule_name}" dir=in action=allow protocol=TCP localport={HTTP} ，'
+        f'或在系统安全弹窗勾选公用/专用网络放行（如已放行可忽略）；也可直接让电脑连手机个人热点后点刷新 IP！'
+        if (active and not rule_ok) else ''
+    )
+    _FW_CACHE.update({'ts': now, 'active': active, 'rule_ok': rule_ok, 'warning': warning})
+    return dict(_FW_CACHE)
+
+
+def build_lan_payload(fixed_ip=None, refresh=False):
+    ips = detect_lan_ips()
+    badminton_stage.lan_ips = ips
+    if fixed_ip:
+        ip = fixed_ip
+    elif badminton_stage.preferred_ip and (not refresh or badminton_stage.preferred_ip in ips):
+        try:
+            ipaddress.IPv4Address(badminton_stage.preferred_ip)
+            ip = badminton_stage.preferred_ip if (badminton_stage.preferred_ip in ips or not refresh) else ips[0]
+        except ValueError:
+            ip = ips[0]
+    else:
+        ip = ips[0]
+    if refresh and badminton_stage.preferred_ip not in ips:
+        badminton_stage.preferred_ip = ips[0]
+        ip = ips[0]
+
+    fw = check_windows_firewall_status()
+    tcp_ok = False
+    try:
+        with socket.create_connection((ip, HTTP), timeout=0.25):
+            tcp_ok = True
+    except OSError:
+        tcp_ok = False
+
+    return {
+        'ip': ip,
+        'ips': ips,
+        'lan_ips': ips,
+        'http_port': HTTP,
+        'https_port': HTTPS,
+        'tls': bool(getattr(HTTP_SERVER_REF, 'tls_ready', False)) if 'HTTP_SERVER_REF' in globals() else False,
+        'tcp_reachable': tcp_ok,
+        'firewall_active': fw['active'],
+        'firewall_rule_ok': fw['rule_ok'],
+        'firewall_warning': fw['warning'],
+        'director_url': f'http://127.0.0.1:{HTTP}/badminton/director',
+        'holo_url': f'http://{ip}:{HTTP}/badminton/holo',
+        'ctrl_url': f'http://{ip}:{HTTP}/badminton/ctrl',
+        'guide_url': f'http://127.0.0.1:{HTTP}/guide',
+    }
+
+
 class UnifiedCoordinator:
     """三合一模式切换、空白电脑 Codex 状态模拟与零权限隐私配置中枢。"""
 
@@ -153,6 +261,7 @@ class UnifiedCoordinator:
         self.work_override = 'auto'
         self.raw_work = 'waiting'
         self.keyboard_capture = True
+        self.tkinter_ready = bool(importlib.util.find_spec('_tkinter'))
         self.camera_deps_ready = bool(
             importlib.util.find_spec('cv2') and importlib.util.find_spec('mediapipe')
         )
@@ -162,6 +271,10 @@ class UnifiedCoordinator:
         self.mode_seq = 0
         self.chat_seq = 0
         self.chat_text = ''
+        self.desktop_spawn_error = '' if self.tkinter_ready else '嵌入式 Python 缺少 tkinter，请安装标准桌面版 Python 3.11'
+        self.shutdown = False
+        self._coffee_proc = None
+        self._badminton_proc = None
 
     def effective_work(self):
         with self.lock:
@@ -179,6 +292,8 @@ class UnifiedCoordinator:
                 'mode': self.mode,
                 'mode_seq': self.mode_seq,
                 'desktop_online': bm_online if self.mode == 'badminton' else coffee_online,
+                'desktop_tkinter_ok': self.tkinter_ready,
+                'desktop_spawn_error': self.desktop_spawn_error,
                 'coffee_desktop_online': coffee_online,
                 'badminton_desktop_online': bm_online,
                 'codex_cli_detected': has_codex_cli(),
@@ -191,6 +306,7 @@ class UnifiedCoordinator:
                 'holo_faces': self.holo_faces,
                 'chat_seq': self.chat_seq,
                 'chat_text': self.chat_text,
+                'shutdown': self.shutdown,
             }
 
     def set_work_override(self, override):
@@ -233,6 +349,9 @@ class UnifiedCoordinator:
         return self.snapshot()
 
     def _spawn_pet(self, target_mode):
+        if not self.tkinter_ready:
+            self.desktop_spawn_error = '当前 Python 缺少 tkinter（嵌入式 Python），无法拉起透明桌面桌宠，请安装标准桌面版 Python 3.11！'
+            return
         py_exe = Path(sys.executable)
         py_gui = py_exe.with_name('pythonw.exe')
         exe = str(py_gui if py_gui.is_file() else py_exe)
@@ -240,7 +359,6 @@ class UnifiedCoordinator:
         env['PYTHONUTF8'] = '1'
         env['CODEX_HOLO_PORT'] = str(HTTP)
         env['CODEX_HOLO_HTTPS_PORT'] = str(HTTPS)
-        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0) | getattr(subprocess, 'DETACHED_PROCESS', 0)
         if target_mode == 'badminton':
             cmd = [exe, str(ROOT / 'app' / 'badminton_overlay.py')]
             if self.badminton_control != 'camera' or not self.camera_deps_ready:
@@ -249,7 +367,27 @@ class UnifiedCoordinator:
             cmd = [exe, str(ROOT / 'coffee_pet.py')]
             if target_mode == 'strike':
                 cmd.append('--strike')
-        subprocess.Popen(cmd, cwd=str(ROOT), env=env, creationflags=flags)
+        CERT_DIR.mkdir(parents=True, exist_ok=True)
+        log_path = CERT_DIR / f'spawn-{target_mode}.log'
+        try:
+            with open(log_path, 'ab') as log_f:
+                proc = subprocess.Popen(
+                    cmd,
+                    cwd=str(ROOT),
+                    env=env,
+                    stdout=log_f,
+                    stderr=log_f,
+                    **_win_hidden_subprocess_kwargs(new_group=True),
+                )
+            with self.lock:
+                self.desktop_spawn_error = ''
+                if target_mode == 'badminton':
+                    self._badminton_proc = proc
+                else:
+                    self._coffee_proc = proc
+        except OSError as exc:
+            with self.lock:
+                self.desktop_spawn_error = f'拉起桌面桌宠失败: {exc}'
 
     def switch_mode(self, target_mode, *, spawn=True):
         if target_mode not in ('coffee', 'strike', 'badminton'):
@@ -258,14 +396,21 @@ class UnifiedCoordinator:
             prev_mode = self.mode
             self.mode = target_mode
             self.mode_seq += 1
+            if target_mode == 'badminton':
+                self.coffee_desktop_at = -100.0
+                self._coffee_proc = None
         with stage.lock:
             stage.android_coffee = (target_mode == 'coffee')
             stage.publish()
+        strike_stage.set_enabled(target_mode == 'strike')
         if not spawn:
             return self.snapshot()
         now = time.monotonic()
         if target_mode == 'badminton':
-            if not live_badminton.snapshot().get('desktop_online'):
+            bm_alive = bool(live_badminton.snapshot().get('desktop_online')) and (
+                self._badminton_proc is None or self._badminton_proc.poll() is None
+            )
+            if not bm_alive:
                 self._spawn_pet('badminton')
         else:
             if prev_mode == 'badminton' or live_badminton.snapshot().get('desktop_online'):
@@ -273,11 +418,53 @@ class UnifiedCoordinator:
                     live_badminton.action('close', {})
                 except Exception:
                     pass
+                self._badminton_proc = None
             with self.lock:
-                coffee_alive = (now - self.coffee_desktop_at) < 4.0
+                proc_alive = self._coffee_proc is None or self._coffee_proc.poll() is None
+                coffee_alive = ((now - self.coffee_desktop_at) < 4.5) and proc_alive
             if not coffee_alive:
                 self._spawn_pet(target_mode)
         return self.snapshot()
+
+    def return_to_office(self):
+        with self.lock:
+            mode = self.mode
+        if mode == 'coffee':
+            with stage.lock:
+                stage.reset()
+                stage.publish()
+        elif mode == 'strike':
+            strike_stage.return_to_office()
+        elif mode == 'badminton':
+            live_badminton.action('quit', {})
+            badminton_stage.jump_to_scene('S0')
+        return {
+            'ok': True,
+            'action': 'return_office',
+            'mode': mode,
+            **self.snapshot(),
+        }
+
+    def reset_mode(self, scope='current', replay=False):
+        with self.lock:
+            cur_mode = self.mode
+        target = cur_mode if scope == 'current' else str(scope or 'all')
+        if target in ('coffee', 'all'):
+            with stage.lock:
+                stage.reset()
+                stage.publish()
+        if target in ('strike', 'all'):
+            strike_stage.reset()
+            strike_stage.set_enabled(cur_mode == 'strike')
+        if target in ('badminton', 'all'):
+            live_badminton.action('replay' if replay else 'reset', {})
+            badminton_stage.jump_to_scene('S0')
+        return {
+            'ok': True,
+            'action': 'reset',
+            'scope': target,
+            **self.snapshot(),
+        }
 
 
 pet_hub = UnifiedCoordinator()
@@ -434,15 +621,16 @@ class CoffeeHandler(legacy.HoloV4Handler):
                     '<svg xmlns="http://www.w3.org/2000/svg" width="220" height="220" viewBox="0 0 220 220">'
                     '<rect width="220" height="220" rx="14" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>'
                     '<text x="110" y="92" text-anchor="middle" fill="#facc15" font-size="13" font-family="sans-serif">缺少 qrcode 依赖</text>'
-                    '<text x="110" y="118" text-anchor="middle" fill="#cbd5e1" font-size="11" font-family="sans-serif">手机浏览器直接输入网址：</text>'
-                    f'<text x="110" y="142" text-anchor="middle" fill="#38bdf8" font-size="10" font-family="monospace">{safe[:30]}</text>'
+                    '<text x="110" y="114" text-anchor="middle" fill="#cbd5e1" font-size="11" font-family="sans-serif">请运行: pip install qrcode[pil]</text>'
+                    f'<text x="110" y="140" text-anchor="middle" fill="#38bdf8" font-size="10" font-family="monospace">{safe[:30]}</text>'
                     '</svg>'
                 ).encode('utf-8')
                 self.send_bytes(svg, 'image/svg+xml; charset=utf-8')
             return
         if path == '/qr_download.png':
             host_header = self.headers.get('Host', '').strip()
-            if host_header:
+            host_only = host_header.split(':', 1)[0].strip('[]').lower()
+            if host_header and host_only not in ('127.0.0.1', 'localhost', '0.0.0.0', '::1', ''):
                 target_url = f'http://{host_header}/download'
             else:
                 ips = detect_lan_ips()
@@ -465,6 +653,9 @@ class CoffeeHandler(legacy.HoloV4Handler):
             return
         if path == '/api/badminton/stream':
             self.stream_badminton()
+            return
+        if path == '/api/sync/stream':
+            self.stream_sync()
             return
 
         if path == '/holo' and query.get('live') == ['1'] and 'classic' not in query:
@@ -498,26 +689,18 @@ class CoffeeHandler(legacy.HoloV4Handler):
             self.end_headers()
         elif path == '/coffee/events':
             self.stream_coffee()
+        elif path == '/coffee/status':
+            with stage.lock:
+                snap = stage.snapshot()
+            self.send_json(snap)
         elif path == '/coffee/clock':
             self.send_json({'now': milliseconds()})
         elif path == '/coffee/lan':
-            ips = detect_lan_ips()
-            badminton_stage.lan_ips = ips
-            ip = getattr(self.server, 'fixed_lan_ip', None) or (
-                badminton_stage.preferred_ip if badminton_stage.preferred_ip in ips else ips[0]
-            )
-            self.send_json({
-                'ip': ip,
-                'ips': ips,
-                'lan_ips': ips,
-                'http_port': HTTP,
-                'https_port': HTTPS,
-                'tls': bool(getattr(self.server, 'tls_ready', False)),
-                'director_url': f'http://127.0.0.1:{HTTP}/badminton/director',
-                'holo_url': f'http://{ip}:{HTTP}/badminton/holo',
-                'ctrl_url': f'http://{ip}:{HTTP}/badminton/ctrl',
-                'guide_url': f'http://127.0.0.1:{HTTP}/guide',
-            })
+            fixed = getattr(self.server, 'fixed_lan_ip', None)
+            refresh = (query.get('refresh') or ['0'])[0] == '1'
+            payload = build_lan_payload(fixed_ip=fixed, refresh=refresh)
+            payload['tls'] = bool(getattr(self.server, 'tls_ready', False))
+            self.send_json(payload)
         elif path == '/coffee/ios-profile.mobileconfig' and getattr(self.server, 'tls_ready', False):
             cert = (CERT_DIR / 'coffee-root.cer').read_bytes()
             from hashlib import sha256
@@ -587,7 +770,7 @@ class CoffeeHandler(legacy.HoloV4Handler):
     def do_POST(self):
         path = urlsplit(self.path).path.rstrip('/')
 
-        if path in ('/api/pet/mode', '/api/pet/heartbeat', '/api/pet/chat', '/api/work_state', '/api/privacy'):
+        if path in ('/api/pet/mode', '/api/pet/heartbeat', '/api/pet/chat', '/api/pet/return_office', '/api/pet/reset', '/api/work_state', '/api/privacy', '/coffee/lan'):
             try:
                 size = int(self.headers.get('Content-Length', '0'))
                 if not 0 <= size <= 4096:
@@ -602,14 +785,36 @@ class CoffeeHandler(legacy.HoloV4Handler):
                     )
                 elif path == '/api/pet/heartbeat':
                     with pet_hub.lock:
-                        pet_hub.coffee_desktop_at = time.monotonic()
-                        if 'mode' in body and str(body['mode']) in ('coffee', 'strike') and pet_hub.mode != 'badminton':
-                            pet_hub.mode = str(body['mode'])
+                        if body.get('closing'):
+                            pet_hub.coffee_desktop_at = -100.0
+                            pet_hub._coffee_proc = None
+                        else:
+                            pet_hub.coffee_desktop_at = time.monotonic()
+                            # 仅在首次未切换前的初始化阶段接受启动参数，禁止覆盖网页权威模式切换
+                            if pet_hub.mode_seq == 0 and body.get('startup_mode') in ('coffee', 'strike'):
+                                pet_hub.mode = str(body['startup_mode'])
                     res = pet_hub.snapshot()
                 elif path == '/api/pet/chat':
                     res = pet_hub.push_chat(body.get('text', ''))
+                elif path == '/api/pet/return_office':
+                    res = pet_hub.return_to_office()
+                elif path == '/api/pet/reset':
+                    res = pet_hub.reset_mode(
+                        scope=str(body.get('scope', 'current')),
+                        replay=bool(body.get('replay', False)),
+                    )
                 elif path == '/api/work_state':
                     res = pet_hub.set_work_override(str(body.get('override', 'auto')))
+                elif path == '/coffee/lan':
+                    req_ip = str(body.get('ip') or '').strip()
+                    if req_ip:
+                        ipaddress.IPv4Address(req_ip)
+                        badminton_stage.update_params({'preferred_ip': req_ip})
+                    res = build_lan_payload(
+                        fixed_ip=getattr(self.server, 'fixed_lan_ip', None),
+                        refresh=bool(body.get('refresh', False)),
+                    )
+                    res['tls'] = bool(getattr(self.server, 'tls_ready', False))
                 else:
                     res = pet_hub.set_privacy(body)
                 self.send_json(res)
@@ -619,6 +824,8 @@ class CoffeeHandler(legacy.HoloV4Handler):
 
         # 全系统停止接口（同时通知桌面端退出并优雅停止本地 HTTP/HTTPS 服务）
         if path == '/api/system/shutdown':
+            with pet_hub.lock:
+                pet_hub.shutdown = True
             with stage.lock:
                 stage.shutdown = True
                 stage.publish()
@@ -655,8 +862,7 @@ class CoffeeHandler(legacy.HoloV4Handler):
                             cmd.extend(['--camera', str(max(0, int(data['camera_index'])))])
                         env = os.environ.copy()
                         env['PYTHONUTF8'] = '1'
-                        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0) | getattr(subprocess, 'DETACHED_PROCESS', 0)
-                        subprocess.Popen(cmd, cwd=str(ROOT), env=env, creationflags=flags)
+                        subprocess.Popen(cmd, cwd=str(ROOT), env=env, **_win_hidden_subprocess_kwargs(new_group=True))
                         launched = True
                     else:
                         snap = live_badminton.action('bar', {'visible': True, 'expanded': True})
@@ -744,14 +950,14 @@ class CoffeeHandler(legacy.HoloV4Handler):
 
                 if path == '/api/strike/input':
                     hits = max(1, min(60, int(body.get('hits', 1))))
-                    res = strike_stage.record_input(hits)
+                    res = strike_stage.record_input(hits, manual_burst=bool(body.get('manual_burst', True)))
                 elif path == '/api/strike/desktop':
                     hits = max(0, min(60, int(body.get('hits', 0))))
                     if not pet_hub.keyboard_capture:
                         hits = 0
                     working = bool(body.get('working', False)) or (pet_hub.effective_work() == 'working')
                     enabled = bool(body.get('enabled', True))
-                    res = strike_stage.record_input(hits, working=working, enabled=enabled)
+                    res = strike_stage.record_input(hits, working=working, enabled=enabled, manual_burst=False)
                 elif path == '/api/strike/discover':
                     res = strike_stage.trigger_discovery_manually(body.get('kind'))
                 elif path == '/api/strike/angry':
@@ -902,6 +1108,49 @@ class CoffeeHandler(legacy.HoloV4Handler):
             with stage.lock:
                 stage.clients.discard(client)
 
+    def stream_sync(self):
+        """单路聚合 SSE 总线：供工作台/联调中枢及嵌入子视图共享状态，彻底避免浏览器 6 连接池耗尽。"""
+        self.send_response(200)
+        self._add_cors_headers()
+        self.send_header('Content-Type', 'text/event-stream; charset=utf-8')
+        self.send_header('Cache-Control', 'no-cache, no-transform')
+        self.send_header('X-Accel-Buffering', 'no')
+        self.end_headers()
+        last_sig = None
+        last_push = 0.0
+        try:
+            while not stage.shutdown:
+                with stage.lock:
+                    coffee_snap = stage.snapshot()
+                strike_snap = strike_stage.snapshot()
+                live_snap = live_badminton.snapshot()
+                pet_snap = pet_hub.snapshot()
+                bm_snap = badminton_stage.snapshot()
+                sig = (
+                    coffee_snap.get('round'), coffee_snap.get('seq'), coffee_snap.get('sent'),
+                    coffee_snap.get('work'), coffee_snap.get('lastLand'),
+                    strike_snap.get('epoch'), strike_snap.get('seq'), strike_snap.get('state'),
+                    live_snap.get('seq'), live_snap.get('phase'),
+                    pet_snap.get('mode_seq'), pet_snap.get('desktop_online'), pet_snap.get('chat_seq'),
+                    bm_snap.get('seq'),
+                )
+                now = time.monotonic()
+                if sig != last_sig or (now - last_push) >= 1.2:
+                    last_sig = sig
+                    last_push = now
+                    payload = {
+                        'coffee': coffee_snap,
+                        'strike': strike_snap,
+                        'live': live_snap,
+                        'pet': pet_snap,
+                        'badminton': bm_snap,
+                    }
+                    self.wfile.write(b'data: ' + json.dumps(payload, separators=(',', ':'), ensure_ascii=False).encode('utf-8') + b'\n\n')
+                    self.wfile.flush()
+                time.sleep(0.06)
+        except OSError:
+            pass
+
 
 def tls_context(ip, extra_ips=None):
     """为本机回环 (127.0.0.1) 与所有真实局域网 IP 签发多 SAN 本地证书。"""
@@ -980,7 +1229,7 @@ def shutdown_active_servers():
 
 
 def main():
-    global HTTP, HTTPS
+    global HTTP, HTTPS, HTTP_SERVER_REF
     parser = argparse.ArgumentParser()
     parser.add_argument('--ip')
     parser.add_argument('--port', type=int)
@@ -1005,6 +1254,7 @@ def main():
     all_ips = detect_lan_ips()
     legacy.LOCAL_IP = str(ipaddress.IPv4Address(args.ip or all_ips[0]))
     with legacy.ThreadingHTTPServer(('0.0.0.0', HTTP), CoffeeHandler) as http:
+        HTTP_SERVER_REF = http
         http.lan_ip, http.tls_ready = legacy.LOCAL_IP, False
         http.fixed_lan_ip = args.ip
         https = None

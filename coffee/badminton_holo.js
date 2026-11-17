@@ -115,11 +115,26 @@
     post('phone', { visible: !document.hidden }).then(applyState).catch(() => connection(false)).finally(() => { heartbeatBusy = false; });
   }
 
-  const sync = new EventSource('/api/badminton/live/stream');
-  sync.onmessage = e => {
-    try { applyState(JSON.parse(e.data).data); } catch {}
-  };
-  sync.onerror = () => connection(false);
+  const isEmbed = params.get('embed') === '1' || window.self !== window.top;
+  if (isEmbed && typeof BroadcastChannel !== 'undefined') {
+    const bus = new BroadcastChannel('codex-holo-bus');
+    bus.onmessage = e => {
+      try { if (e.data?.live) applyState(e.data.live); } catch {}
+    };
+    fetch('/api/badminton/live/status', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(s => { if (s) applyState(s); })
+      .catch(() => {});
+  } else {
+    const sync = new EventSource('/api/badminton/live/stream');
+    sync.onmessage = e => {
+      try { applyState(JSON.parse(e.data).data); } catch {}
+    };
+    sync.onerror = () => connection(false);
+    const closeSync = () => { try { sync.close(); } catch {} };
+    window.addEventListener('pagehide', closeSync);
+    window.addEventListener('beforeunload', closeSync);
+  }
   setInterval(heartbeat, 800);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) heartbeat(); });
   heartbeat();

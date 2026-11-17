@@ -12,6 +12,11 @@ from urllib.request import Request
 import webbrowser
 import winsound
 
+ROOT_DIR = Path(__file__).resolve().parent
+RUNTIME_DIR = ROOT_DIR / '.rally-runtime'
+if RUNTIME_DIR.is_dir() and str(RUNTIME_DIR) not in sys.path:
+    sys.path.insert(0, str(RUNTIME_DIR))
+
 from PIL import Image, ImageDraw, ImageFont, ImageTk
 
 from coffee_work import work_states
@@ -242,9 +247,11 @@ class Pet:
         self.menu.add_command(label='移到屏幕右下角', command=self.reset_to_corner)
         self.menu.add_command(label='移到屏幕正中央', command=self.center_on_screen)
         self.menu.add_separator()
-        self.menu.add_command(label='重新倒一杯',command=lambda: self.send('reset',{'round':self.snapshot.get('round')}))
-        self.menu.add_command(label='退出 Codex 桌宠',command=self.root.destroy)
-        self.canvas.bind('<Button-3>',self.show_menu)
+        self.menu.add_command(label='重新倒一杯', command=lambda: self.send('reset', {'round': self.snapshot.get('round')}))
+        self.menu.add_command(label='仅隐藏桌宠 (保留网页)', command=self._hide_pet_only)
+        self.menu.add_command(label='退出 Codex 桌宠', command=self.exit_all)
+        self.canvas.bind('<Button-3>', self.show_menu)
+        self.root.protocol('WM_DELETE_WINDOW', self.exit_all)
 
         self.snapshot = {}
         self.offset = 0
@@ -287,6 +294,7 @@ class Pet:
             ('badminton', '🏸 羽毛球', lambda: self.switch_suite_mode('badminton')),
             ('chat', '💬 对话', self.cycle_chat),
             ('web', '🌐 工作台', lambda: webbrowser.open(HOST + '/')),
+            ('exit', '⏻ 退出', self.exit_all),
         ]
         for key, label, cmd in specs:
             b = tk.Button(body, text=label, bg='#1e293b', fg='#f8fafc', activebackground='#0284c7',
@@ -326,6 +334,11 @@ class Pet:
                 b.config(bg='#0284c7' if active else '#1e293b', fg='#ffffff' if active else '#cbd5e1')
 
     def switch_suite_mode(self, target_mode):
+        if target_mode in ('coffee', 'strike') and hasattr(self, 'set_mode'):
+            try:
+                self.set_mode(target_mode)
+            except Exception:
+                pass
         def run():
             try:
                 req = Request(f'{HOST}/api/pet/mode', json.dumps({'mode': target_mode, 'spawn': True}).encode(),
@@ -333,11 +346,46 @@ class Pet:
                 HTTP_OPENER.open(req, timeout=2.0).read()
             except OSError:
                 pass
-        threading.Thread(target=run, daemon=True).start()
+        t = threading.Thread(target=run, daemon=target_mode != 'badminton')
+        t.start()
+        if target_mode == 'badminton':
+            t.join(timeout=1.2)
+            cb = getattr(self, 'close', self.root.destroy)
+            self.root.after(0, cb)
+            return
         if target_mode == 'coffee':
             self.show_chat('已切到【跨屏倒咖啡】！用手机或工作台倒满杯吧 ☕', 4.0)
         elif target_mode == 'strike':
-            self.show_chat('已切到【挖土罢工与全息搓澡】！不想读键盘可点工作台纯按钮触发 🛁', 4.0)
+            self.show_chat('已切到【挖土罢工与全息搓澡】！打字敲键或点工作台按钮即可触发 🛁', 4.0)
+
+    def _hide_pet_only(self):
+        """仅关闭桌面小人窗口，保留后台同步服务与网页工作台。"""
+        cb = getattr(self, 'close', None)
+        if callable(cb):
+            cb()
+            return
+        try:
+            req = Request(f'{HOST}/api/pet/heartbeat', b'{"closing":true}', {'Content-Type': 'application/json'})
+            HTTP_OPENER.open(req, timeout=0.45).close()
+        except (OSError, ValueError):
+            pass
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
+
+    def exit_all(self):
+        """彻底退出 Codex 桌宠并优雅关闭本地后台服务，避免后台继续驻留或轮询。"""
+        def _req():
+            try:
+                req = Request(f'{HOST}/api/system/shutdown', b'{}', {'Content-Type': 'application/json'})
+                HTTP_OPENER.open(req, timeout=0.6).close()
+            except (OSError, ValueError):
+                pass
+        t = threading.Thread(target=_req, daemon=True)
+        t.start()
+        t.join(timeout=0.35)
+        self._hide_pet_only()
 
     def cycle_chat(self):
         msg = CHAT_PROMPTS[self._chat_idx % len(CHAT_PROMPTS)]
@@ -468,23 +516,29 @@ class Pet:
     def _poll_coordinator(self):
         last_mode_seq = -1
         while True:
+            if getattr(self, 'closed', None) is not None and self.closed.is_set():
+                return
             try:
                 cur_mode = 'strike' if getattr(self, 'enabled', False) else 'coffee'
                 req = Request(
                     f'{HOST}/api/pet/heartbeat',
-                    json.dumps({'mode': cur_mode}).encode('utf-8'),
+                    json.dumps({'active_mode': cur_mode}).encode('utf-8'),
                     {'Content-Type': 'application/json'}
                 )
                 with HTTP_OPENER.open(req, timeout=1.2) as resp:
                     info = json.load(resp)
-                if hasattr(self, 'on_coordinator_state'):
-                    self.root.after(0, lambda d=info: self.on_coordinator_state(d, last_mode_seq))
-                else:
-                    self.root.after(0, lambda m=info.get('mode', 'coffee'): self._refresh_dock_mode(m))
+                if info.get('shutdown'):
+                    self.root.after(0, self._hide_pet_only)
+                    return
+                prev_seq = last_mode_seq
                 last_mode_seq = info.get('mode_seq', last_mode_seq)
                 eff = info.get('effective_work')
                 if eff in ('working', 'idle', 'waiting'):
                     self.work = eff
+                if hasattr(self, 'on_coordinator_state'):
+                    self.root.after(0, lambda d=info, p=prev_seq: self.on_coordinator_state(d, p))
+                else:
+                    self.root.after(0, lambda m=info.get('mode', 'coffee'): self._refresh_dock_mode(m))
                 c_seq = info.get('chat_seq', 0)
                 if c_seq and c_seq != self._last_chat_seq:
                     self._last_chat_seq = c_seq
@@ -492,7 +546,7 @@ class Pet:
                     self.root.after(0, lambda t=txt: self.show_chat(t, 4.5))
             except (OSError, ValueError):
                 pass
-            time.sleep(0.45)
+            time.sleep(0.35)
 
     def follow_work(self):
         for phase in work_states(WORKSPACE):
